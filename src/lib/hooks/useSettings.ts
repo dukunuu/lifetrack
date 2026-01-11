@@ -22,6 +22,7 @@ export interface AppSettings {
   };
   quickAdd: {
     showSessionTimer: boolean;
+    usePopup: boolean;
   };
 }
 
@@ -49,6 +50,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   quickAdd: {
     showSessionTimer: true,
+    usePopup: false,
   },
 };
 

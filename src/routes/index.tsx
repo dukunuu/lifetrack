@@ -24,6 +24,10 @@ export const routes: RouteDefinition[] = [
         component: lazy(() => import('./history.tsx')),
       },
       {
+        path: '/sessions/:id',
+        component: lazy(() => import('./session.tsx')),
+      },
+      {
         path: '/settings',
         component: lazy(() => import('./settings.tsx')),
       },

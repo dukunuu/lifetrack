@@ -1,9 +1,12 @@
 import { createSignal, createEffect } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import type { EntryData, Tracker } from '../db/types';
 import { trackerRepo, entryRepo, sessionRepo, groupRepo } from '../repositories';
 import { parserService } from '../services/parser';
 import { timestamp, dateString } from '../db/utils';
 import { Tokenizer } from '../services/parser/tokenizer';
+import { useSettings } from './useSettings';
+import { runChatTurn } from '../services/chat-runtime';
 import Fuse from 'fuse.js';
 
 export interface TrackerSuggestion {
@@ -16,7 +19,7 @@ export interface TrackerSuggestion {
 
 export interface CommandSuggestion {
   type: 'command';
-  command: 'start' | 'done' | 'abandon';
+  command: 'start' | 'done' | 'abandon' | 'chat';
   label: string;
   description: string;
   insertText: string;
@@ -25,6 +28,8 @@ export interface CommandSuggestion {
 export type AutocompleteSuggestion = TrackerSuggestion | CommandSuggestion;
 
 export function useQuickAdd() {
+  const navigate = useNavigate();
+  const { settings } = useSettings();
   const [input, setInput] = createSignal('');
   const [suggestions, setSuggestions] = createSignal<AutocompleteSuggestion[]>([]);
   const [selectedIndex, setSelectedIndex] = createSignal(0);
@@ -97,9 +102,16 @@ export function useQuickAdd() {
       }
 
       const query = lower.slice(1).trim();
-      const commandSuggestions = buildCommandSuggestions(
-        activeSession ? activeSession.name ?? 'session' : undefined,
-      );
+      const commandSuggestions = [
+        ...buildCommandSuggestions(activeSession ? activeSession.name ?? 'session' : undefined),
+        {
+          type: 'command' as const,
+          command: 'chat',
+          label: '/chat',
+          description: 'Start an AI chat session',
+          insertText: '/chat ',
+        },
+      ];
       const filtered = query.length
         ? commandSuggestions.filter(
             (command) =>
@@ -359,6 +371,71 @@ export function useQuickAdd() {
     }
   };
 
+  const handleSessionCommand = async (inputValue: string): Promise<boolean> => {
+    const trimmed = inputValue.trim();
+    const commandMatch = trimmed.match(/^\/(start|done|abandon|chat)\b(.*)$/i);
+    if (!commandMatch) return false;
+
+    const action = commandMatch[1].toLowerCase();
+    const rest = commandMatch[2]?.trim() ?? '';
+
+    const tokenizer = new Tokenizer();
+    const tokens = tokenizer.tokenize(trimmed);
+    const hasTags = tokens.some((token) => token.type === 'tag');
+
+    if (hasTags) return false;
+
+    if (action === 'done') {
+      const active = await sessionRepo.findActive();
+      if (!active) {
+        throw new Error('No active session to complete.');
+      }
+      await completeGroupedEntry(active);
+      return true;
+    }
+
+    if (action === 'abandon') {
+      const active = await sessionRepo.findActive();
+      if (!active) {
+        throw new Error('No active session to abandon.');
+      }
+      await sessionRepo.abandonSession(active._id);
+      return true;
+    }
+
+    if (action === 'chat') {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        throw new Error('AI chat is an internet-only feature.');
+      }
+      const session = await sessionRepo.startAiSession('AI Chat');
+
+      if (rest) {
+        await runChatTurn(session._id, rest, settings().ai);
+      }
+
+      navigate(`/sessions/${session._id}`);
+      return true;
+    }
+
+    const startMatch = rest.match(/@([a-z0-9/-]+)\s*(.*)?/i);
+    if (!startMatch) {
+      throw new Error('Use /start @group to begin a session.');
+    }
+
+    const groupSlug = startMatch[1];
+    const name = startMatch[2]?.trim() || undefined;
+
+    const bySlug = await groupRepo.findBySlug(groupSlug);
+    const byPath = !bySlug && groupSlug.includes('/') ? await groupRepo.findByPath(groupSlug) : null;
+    const group = bySlug ?? byPath ?? null;
+    if (!group) {
+      throw new Error(`Group "${groupSlug}" not found.`);
+    }
+
+    await sessionRepo.startSession('custom', group._id, name ?? group.name);
+    return true;
+  };
+
   return {
     input,
     setInput,
@@ -393,57 +470,6 @@ function buildCommandSuggestions(sessionName?: string): CommandSuggestion[] {
       insertText: '/done',
     },
   ];
-}
-
-async function handleSessionCommand(inputValue: string): Promise<boolean> {
-  const trimmed = inputValue.trim();
-  const commandMatch = trimmed.match(/^\/(start|done|abandon)\b(.*)$/i);
-  if (!commandMatch) return false;
-
-  const action = commandMatch[1].toLowerCase();
-  const rest = commandMatch[2]?.trim() ?? '';
-
-  const tokenizer = new Tokenizer();
-  const tokens = tokenizer.tokenize(trimmed);
-  const hasTags = tokens.some((token) => token.type === 'tag');
-
-  if (hasTags) return false;
-
-  if (action === 'done') {
-    const active = await sessionRepo.findActive();
-    if (!active) {
-      throw new Error('No active session to complete.');
-    }
-    await completeGroupedEntry(active);
-    return true;
-  }
-
-  if (action === 'abandon') {
-    const active = await sessionRepo.findActive();
-    if (!active) {
-      throw new Error('No active session to abandon.');
-    }
-    await sessionRepo.abandonSession(active._id);
-    return true;
-  }
-
-  const startMatch = rest.match(/@([a-z0-9/-]+)\s*(.*)?/i);
-  if (!startMatch) {
-    throw new Error('Use /start @group to begin a session.');
-  }
-
-  const groupSlug = startMatch[1];
-  const name = startMatch[2]?.trim() || undefined;
-
-  const bySlug = await groupRepo.findBySlug(groupSlug);
-  const byPath = !bySlug && groupSlug.includes('/') ? await groupRepo.findByPath(groupSlug) : null;
-  const group = bySlug ?? byPath ?? null;
-  if (!group) {
-    throw new Error(`Group "${groupSlug}" not found.`);
-  }
-
-  await sessionRepo.startSession('custom', group._id, name ?? group.name);
-  return true;
 }
 
 async function maybeCompleteSession(

@@ -178,8 +178,8 @@ export default function GroupList(props: GroupListProps) {
           }}
         >
           <div class="card-body p-4">
-            <div class="flex items-center justify-between">
-              <div class="flex flex-1 items-center gap-3">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex flex-1 items-start gap-3 sm:items-center">
                 {/* Expand/Collapse Button */}
                 <Show when={hasChildren} fallback={<div class="w-4" />} /* Spacer for alignment */>
                   <button
@@ -216,16 +216,16 @@ export default function GroupList(props: GroupListProps) {
 
                 {/* Group Info */}
                 <div class="flex-1">
-                  <div class="flex items-center gap-2">
-                    <h4 class="text-lg font-semibold">{group.name}</h4>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h4 class="text-base font-semibold sm:text-lg">{group.name}</h4>
                     <Show when={hasChildren}>
                       <span class="badge badge-xs bg-base-content/20 tabular-nums">
                         {children.length}
                       </span>
                     </Show>
                   </div>
-                  <div class="text-base-content/60 mt-1 flex items-center gap-4 text-sm">
-                    <span class="font-mono text-xs">{group.path}</span>
+                  <div class="text-base-content/60 mt-1 flex flex-wrap items-center gap-3 text-sm">
+                    <span class="font-mono text-[11px] break-all">{group.path}</span>
                     <Show when={!group.allowsTrackers}>
                       <span class="badge badge-sm bg-base-content/10">Groups only</span>
                     </Show>
@@ -240,7 +240,7 @@ export default function GroupList(props: GroupListProps) {
               </div>
 
               {/* Action Buttons */}
-              <div class="flex gap-2">
+              <div class="flex flex-wrap gap-2 sm:justify-end">
                 <button
                   class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary transition-colors"
                   onClick={() => props.onEdit?.(group)}
@@ -269,7 +269,7 @@ export default function GroupList(props: GroupListProps) {
 
         {/* Render children (only if expanded) */}
         <Show when={expandedGroups().has(group._id)}>
-          <div class="border-base-content/5 mt-2 ml-6 border-l-2 pl-8">
+          <div class="border-base-content/5 mt-2 ml-3 border-l-2 pl-4 sm:ml-6 sm:pl-8">
             <For each={children}>
               {(child, childIndex) =>
                 renderGroup(child, childrenMap, isArchived, index + childIndex() + 1)
@@ -293,8 +293,8 @@ export default function GroupList(props: GroupListProps) {
         }}
       >
         <div class="card-body p-4">
-          <div class="flex items-center justify-between">
-            <div class="flex flex-1 items-center gap-3">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-1 items-start gap-3 sm:items-center">
               <Show when={group.icon}>
                 <span class="text-2xl">{group.icon}</span>
               </Show>
@@ -302,9 +302,9 @@ export default function GroupList(props: GroupListProps) {
                 <FolderOpen size={24} class="text-base-content/50" />
               </Show>
               <div class="flex-1">
-                <h4 class="text-lg font-semibold">{group.name}</h4>
-                <div class="text-base-content/60 mt-1 flex items-center gap-4 text-sm">
-                  <span class="font-mono text-xs">{group.path}</span>
+                <h4 class="text-base font-semibold sm:text-lg">{group.name}</h4>
+                <div class="text-base-content/60 mt-1 flex flex-wrap items-center gap-3 text-sm">
+                  <span class="font-mono text-[11px] break-all">{group.path}</span>
                   <span class="badge badge-sm bg-base-content/10 tabular-nums">
                     Depth: {group.depth}
                   </span>
@@ -320,7 +320,7 @@ export default function GroupList(props: GroupListProps) {
                 </Show>
               </div>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2 sm:justify-end">
               <button
                 class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary transition-colors"
                 onClick={() => props.onEdit?.(group)}
@@ -353,7 +353,7 @@ export default function GroupList(props: GroupListProps) {
     <div class="space-y-6">
       {/* Search Bar and Controls */}
       <div class="space-y-3">
-        <div class="flex gap-3">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
           <SearchInput
             value={searchQuery()}
             onInput={handleSearch}
@@ -364,7 +364,7 @@ export default function GroupList(props: GroupListProps) {
 
           {/* Expand/Collapse All Buttons */}
           <Show when={!searchQuery().trim()}>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
               <button
                 onClick={expandAll}
                 class="btn btn-ghost btn-sm gap-2"

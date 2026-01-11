@@ -74,7 +74,7 @@ export default function Settings() {
     }));
   };
 
-  const updateQuickAdd = (field: 'showSessionTimer', value: boolean) => {
+  const updateQuickAdd = (field: 'showSessionTimer' | 'usePopup', value: boolean) => {
     setSettings((prev) => ({
       ...prev,
       quickAdd: {
@@ -437,6 +437,21 @@ export default function Settings() {
           </div>
 
           <div class="space-y-5">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="text-base-content/70 text-sm font-semibold">Use pop-up Quick Add</div>
+                <div class="text-base-content/50 text-xs">
+                  Hide the docked bar and open Quick Add from a floating button.
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={settings().quickAdd.usePopup}
+                onChange={(e) => updateQuickAdd('usePopup', e.currentTarget.checked)}
+              />
+            </div>
+
             <div class="flex items-center justify-between gap-3">
               <div>
                 <div class="text-base-content/70 text-sm font-semibold">

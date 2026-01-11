@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
+import { A } from '@solidjs/router';
 import { CalendarClock, CheckCircle2, CircleX, Clock4, ChevronDown } from 'lucide-solid';
 import { useGroups } from '../../lib/hooks/useGroups';
 import { useSessions } from '../../lib/hooks/useSessions';
@@ -110,7 +111,9 @@ export default function SessionHistory() {
       >
         <div class="space-y-3">
           <For each={sessions()}>
-            {(session) => (
+            {(session) => {
+              const isChat = session.type === 'ai';
+              return (
               <div
                 class="border-base-300/50 bg-base-200/50 rounded-xl border px-4 py-3"
                 style={{
@@ -122,12 +125,14 @@ export default function SessionHistory() {
                 <div class="flex flex-wrap items-center justify-between gap-4">
                   <div class="min-w-0">
                     <div class="text-base-content/80 text-sm font-semibold">
-                      {session.name || session.type}
+                      {session.name || (isChat ? 'AI Chat' : session.type)}
                     </div>
                     <div class="text-base-content/50 text-xs">
-                      {session.groupId
-                        ? groupMap().get(session.groupId)?.name ?? 'Unknown group'
-                        : 'No group'}
+                      {isChat
+                        ? 'Conversation'
+                        : session.groupId
+                          ? groupMap().get(session.groupId)?.name ?? 'Unknown group'
+                          : 'No group'}
                     </div>
                   </div>
 
@@ -163,19 +168,28 @@ export default function SessionHistory() {
                   </div>
                 </div>
 
-                <button
-                  class="text-base-content/60 hover:text-base-content mt-3 flex items-center gap-2 text-xs transition-colors"
-                  onClick={() =>
-                    setExpandedId(expandedId() === session._id ? null : session._id)
-                  }
-                >
-                  <span>{expandedId() === session._id ? 'Hide entries' : 'View entries'}</span>
-                  <ChevronDown
-                    class={`size-4 transition-transform ${expandedId() === session._id ? 'rotate-180' : ''}`}
-                  />
-                </button>
+                <div class="mt-3 flex flex-wrap items-center gap-3">
+                  <Show when={!isChat}>
+                    <button
+                      class="text-base-content/60 hover:text-base-content flex items-center gap-2 text-xs transition-colors"
+                      onClick={() =>
+                        setExpandedId(expandedId() === session._id ? null : session._id)
+                      }
+                    >
+                      <span>{expandedId() === session._id ? 'Hide entries' : 'View entries'}</span>
+                      <ChevronDown
+                        class={`size-4 transition-transform ${expandedId() === session._id ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                  </Show>
+                  <Show when={isChat}>
+                    <A class="btn btn-ghost btn-xs" href={`/sessions/${session._id}`}>
+                      Open chat
+                    </A>
+                  </Show>
+                </div>
 
-                <Show when={expandedId() === session._id}>
+                <Show when={!isChat && expandedId() === session._id}>
                   <div class="border-base-300/50 mt-4 border-t pt-4">
                     <div class="space-y-3">
                       <Show
@@ -234,7 +248,8 @@ export default function SessionHistory() {
                   </div>
                 </Show>
               </div>
-            )}
+              );
+            }}
           </For>
         </div>
       </Show>

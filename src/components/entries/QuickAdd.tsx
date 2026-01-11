@@ -13,6 +13,7 @@ type QuickAddProps = {
   showPinnedTrackers?: boolean;
   openUp?: boolean;
   fixed?: boolean;
+  autoFocus?: boolean;
 };
 
 export default function QuickAdd(props: QuickAddProps) {
@@ -98,6 +99,12 @@ export default function QuickAdd(props: QuickAddProps) {
     if (!activeSession()) return;
     const timer = setInterval(() => setSessionNow(Date.now()), 1000);
     onCleanup(() => clearInterval(timer));
+  });
+
+  createEffect(() => {
+    if (props.autoFocus && inputRef) {
+      inputRef.focus();
+    }
   });
 
   const handleSubmit = async (e: Event) => {
@@ -237,7 +244,7 @@ export default function QuickAdd(props: QuickAddProps) {
                   return (
                     <button
                       type="button"
-                      class="badge badge-lg bg-base-100/70 border-base-300/70 hover:border-primary/40 gap-2 border transition-colors"
+                      class="badge badge-lg bg-base-100/70 border-base-300/70 hover:border-primary/40 max-w-full items-center gap-2 border transition-colors"
                       style={{
                         'border-color': accent ?? undefined,
                         color: accent ?? undefined,
@@ -246,10 +253,12 @@ export default function QuickAdd(props: QuickAddProps) {
                       title={tracker.label}
                     >
                       <Show when={meta?.icon}>
-                        <span>{meta?.icon}</span>
+                        <span class="shrink-0">{meta?.icon}</span>
                       </Show>
-                      <span class="font-mono text-xs">#{tracker.tag}</span>
-                      <span class="text-base-content/60 max-w-[140px] truncate text-xs">
+                      <span class="font-mono text-[11px] leading-none shrink-0">
+                        #{tracker.tag}
+                      </span>
+                      <span class="text-base-content/60 relative -top-px min-w-0 truncate text-[11px] leading-none">
                         {tracker.label}
                       </span>
                     </button>
@@ -343,7 +352,7 @@ export default function QuickAdd(props: QuickAddProps) {
                 <Show when={showSuggestions() && suggestions().length > 0}>
                   <ul
                     ref={dropdownRef}
-                    class="menu bg-base-200 rounded-box border-base-300 max-h-96 overflow-y-auto border p-2 shadow-2xl"
+                    class="menu bg-base-200 rounded-box border-base-300 max-h-96 overflow-x-hidden overflow-y-auto border p-2 shadow-2xl"
                     classList={{ 'mt-2': !props.openUp }}
                   >
                     <For each={suggestions()}>
@@ -471,7 +480,7 @@ export default function QuickAdd(props: QuickAddProps) {
           <Show when={loading()}>
             <div class="alert mt-2">
               <span class="loading loading-spinner loading-sm"></span>
-              <span>Creating entry...</span>
+              <span>Working...</span>
             </div>
           </Show>
         </form>

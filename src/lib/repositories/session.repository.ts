@@ -15,7 +15,7 @@ export class SessionRepository extends BaseRepository<Session> {
   }
 
   async findActive(): Promise<Session | null> {
-    return this.findOne((doc) => doc.status === 'active');
+    return this.findOne((doc) => doc.status === 'active' && doc.type !== 'ai');
   }
 
   async findByStatus(status: SessionStatus, options?: QueryOptions): Promise<Session[]> {
@@ -61,6 +61,19 @@ export class SessionRepository extends BaseRepository<Session> {
       pendingData: [],
       pendingNotes: [],
       pendingRaw: [],
+    });
+  }
+
+  async startAiSession(name?: string): Promise<Session> {
+    return this.create({
+      type: 'ai',
+      name: name ?? 'AI Chat',
+      startTime: timestamp(),
+      status: 'active',
+      pendingData: [],
+      pendingNotes: [],
+      pendingRaw: [],
+      chatMessages: [],
     });
   }
 
@@ -152,6 +165,19 @@ export class SessionRepository extends BaseRepository<Session> {
       pendingData,
       pendingNotes,
       pendingRaw,
+    });
+  }
+
+  async appendChatMessage(sessionId: string, message: NonNullable<Session['chatMessages']>[number]) {
+    const session = await this.findById(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const chatMessages = [...(session.chatMessages ?? []), message];
+
+    return this.update(sessionId, {
+      chatMessages,
     });
   }
 

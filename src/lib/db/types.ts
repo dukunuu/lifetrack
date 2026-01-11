@@ -93,13 +93,19 @@ export interface Entry extends BaseDocument {
   };
 }
 
-export type SessionType = 'workout' | 'meal' | 'custom';
+export type SessionType = 'workout' | 'meal' | 'custom' | 'ai';
 export type SessionStatus = 'active' | 'completed' | 'abandoned';
 
 export interface SessionSummary {
   duration: number;
   entryCount: number;
   aggregates?: Record<string, number>;
+}
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  createdAt: string;
 }
 
 export interface Session extends BaseDocument {
@@ -115,6 +121,7 @@ export interface Session extends BaseDocument {
   pendingData?: EntryData[];
   pendingNotes?: string[];
   pendingRaw?: string[];
+  chatMessages?: ChatMessage[];
 }
 
 export type GoalType = 'target' | 'cumulative' | 'frequency' | 'streak' | 'duration';

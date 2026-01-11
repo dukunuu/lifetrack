@@ -1,7 +1,8 @@
-import { For, Show, type ParentComponent } from 'solid-js';
+import { For, Show, createSignal, type ParentComponent } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
-import { Home, Target, TrendingUp, History, Settings, Menu } from 'lucide-solid';
+import { Home, Target, TrendingUp, History, Settings, Menu, Zap, X } from 'lucide-solid';
 import QuickAdd from '../entries/QuickAdd';
+import { useSettings } from '../../lib/hooks/useSettings';
 
 const routes = [
   { href: '/', label: 'Dashboard', icon: Home, end: true },
@@ -14,6 +15,21 @@ const settingsRoute = { href: '/settings', label: 'Settings', icon: Settings };
 
 const Layout: ParentComponent = (props) => {
   const location = useLocation();
+  const { settings } = useSettings();
+  const [isQuickAddOpen, setIsQuickAddOpen] = createSignal(false);
+
+  const isSettingsRoute = () => location.pathname === '/settings';
+  const isHomeRoute = () => location.pathname === '/';
+  const isSessionRoute = () => location.pathname.startsWith('/sessions/');
+  const isQuickAddCollisionRoute = () =>
+    location.pathname.startsWith('/trackers') || location.pathname.startsWith('/goals');
+  const useQuickAddPopup = () => settings().quickAdd.usePopup;
+  const showDockedQuickAdd = () =>
+    !isHomeRoute() && !isSettingsRoute() && !isSessionRoute() && !useQuickAddPopup();
+  const showQuickAddFab = () =>
+    !isHomeRoute() && !isSettingsRoute() && !isSessionRoute() && useQuickAddPopup();
+  const quickAddFabPositionClass = () =>
+    isQuickAddCollisionRoute() ? 'right-24 sm:right-28' : 'right-6 sm:right-8';
 
   return (
     <div class="drawer lg:drawer-open">
@@ -21,9 +37,9 @@ const Layout: ParentComponent = (props) => {
 
       {/* Main content */}
       <div
-        class="drawer-content bg-base-200 flex min-h-screen flex-col"
+        class="drawer-content bg-base-100 flex min-h-screen flex-col"
         classList={{
-          'has-quickadd': location.pathname !== '/',
+          'has-quickadd': showDockedQuickAdd(),
         }}
       >
         {/* Mobile menu button */}
@@ -35,12 +51,45 @@ const Layout: ParentComponent = (props) => {
 
         {props.children}
 
-        <Show when={location.pathname !== '/' && location.pathname !== '/settings'}>
+        <Show when={showDockedQuickAdd()}>
           <div class="fixed bottom-0 left-0 right-0 z-10 lg:left-64">
             <div>
               <div class="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
                 <QuickAdd fixed openUp showPinnedTrackers={false} />
               </div>
+            </div>
+          </div>
+        </Show>
+
+        <Show when={showQuickAddFab()}>
+          <button
+            type="button"
+            class="btn btn-primary btn-circle fab-quickadd-offset fixed z-20 shadow-lg"
+            classList={{
+              [quickAddFabPositionClass()]: true,
+            }}
+            aria-label="Open Quick Add"
+            onClick={() => setIsQuickAddOpen(true)}
+          >
+            <Zap class="size-5" />
+          </button>
+
+          <div class="modal backdrop-blur-sm" classList={{ 'modal-open': isQuickAddOpen() }}>
+            <div class="modal-box bg-base-200 border-base-300 relative w-full max-w-3xl border">
+              <button
+                type="button"
+                class="btn btn-sm btn-circle absolute right-4 top-4"
+                aria-label="Close Quick Add"
+                onClick={() => setIsQuickAddOpen(false)}
+              >
+                <X class="size-4" />
+              </button>
+              <QuickAdd showPinnedTrackers autoFocus />
+            </div>
+            <div class="modal-backdrop">
+              <button type="button" onClick={() => setIsQuickAddOpen(false)}>
+                close
+              </button>
             </div>
           </div>
         </Show>
