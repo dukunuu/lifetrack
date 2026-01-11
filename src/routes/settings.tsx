@@ -7,6 +7,8 @@ import { OPENAI_MODELS, OPENROUTER_MODELS } from '../lib/constants/ai-models';
 const THEMES = [
   { id: 'lifetrack', label: 'Lifetrack (default)' },
   { id: 'graphite', label: 'Graphite' },
+  { id: 'linen', label: 'Linen (light)' },
+  { id: 'cyberpunk', label: 'Cyberpunk' },
 ];
 
 export default function Settings() {
