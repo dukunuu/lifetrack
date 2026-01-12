@@ -24,13 +24,21 @@ const Layout: ParentComponent = (props) => {
   const isSettingsRoute = () => location.pathname === '/settings';
   const isHomeRoute = () => location.pathname === '/';
   const isSessionRoute = () => location.pathname.startsWith('/sessions/');
+  const isHistoryRoute = () => location.pathname.startsWith('/history');
   const isQuickAddCollisionRoute = () =>
     location.pathname.startsWith('/trackers') || location.pathname.startsWith('/goals');
   const useQuickAddPopup = () => settings().quickAdd.usePopup;
   const showDockedQuickAdd = () =>
-    !isHomeRoute() && !isSettingsRoute() && !isSessionRoute() && !useQuickAddPopup();
+    !isHomeRoute() &&
+    !isSettingsRoute() &&
+    !isSessionRoute() &&
+    !isHistoryRoute() &&
+    !useQuickAddPopup();
   const showQuickAddFab = () =>
-    !isHomeRoute() && !isSettingsRoute() && !isSessionRoute() && useQuickAddPopup();
+    !isHomeRoute() &&
+    !isSettingsRoute() &&
+    !isSessionRoute() &&
+    (useQuickAddPopup() || isHistoryRoute());
   const quickAddFabPositionClass = () =>
     isQuickAddCollisionRoute() ? 'right-24 sm:right-28' : 'right-6 sm:right-8';
 

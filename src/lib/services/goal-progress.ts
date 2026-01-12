@@ -28,8 +28,18 @@ const formatNumber = (value: number) => {
   return value.toFixed(1);
 };
 
-const getDateRange = (goal: Goal) => {
-  const today = new Date();
+export interface GoalProgressRange {
+  start: string;
+  end: string;
+}
+
+export interface GoalProgressOptions {
+  range?: GoalProgressRange;
+  referenceDate?: Date;
+}
+
+const getDateRange = (goal: Goal, referenceDate?: Date): GoalProgressRange => {
+  const today = referenceDate ?? new Date();
   const end = toDateString(today);
 
   if (goal.period === 'daily') {
@@ -79,8 +89,10 @@ export function computeGoalProgress(
   entries: Entry[],
   groups: Group[],
   trackers: Tracker[],
+  options: GoalProgressOptions = {},
 ): GoalProgress {
-  const { start, end } = getDateRange(goal);
+  const range = options.range ?? getDateRange(goal, options.referenceDate);
+  const { start, end } = range;
   const trackerIds = goal.groupId
     ? getGroupTrackerIds(goal.groupId, groups, trackers)
     : goal.trackerIds;

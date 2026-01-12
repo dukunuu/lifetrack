@@ -18,6 +18,8 @@ export interface AppSettings {
     theme: string;
     reduceMotion: boolean;
     timeFormat: '12h' | '24h';
+    defaultHistoryView: 'day' | 'week' | 'month';
+    historyStartHour: number;
   };
   quickAdd: {
     showSessionTimer: boolean;
@@ -45,6 +47,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     theme: 'lifetrack',
     reduceMotion: false,
     timeFormat: '24h',
+    defaultHistoryView: 'week',
+    historyStartHour: 5,
   },
   quickAdd: {
     showSessionTimer: true,

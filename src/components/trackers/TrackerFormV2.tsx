@@ -33,6 +33,9 @@ export default function TrackerFormV2(props: TrackerFormProps) {
   const [label, setLabel] = createSignal(props.initialData?.label || '');
   const [tag, setTag] = createSignal(props.initialData?.tag || '');
   const [groupId, setGroupId] = createSignal(props.initialData?.groupId || '');
+  const [additionalGroupIds, setAdditionalGroupIds] = createSignal<string[]>(
+    props.initialData?.additionalGroupIds || [],
+  );
   const [fields, setFields] = createSignal<FieldDefinition[]>(
     props.initialData?.fields || defaultFields,
   );
@@ -46,6 +49,7 @@ export default function TrackerFormV2(props: TrackerFormProps) {
         label: props.initialData?.label || '',
         tag: props.initialData?.tag || '',
         groupId: props.initialData?.groupId || '',
+        additionalGroupIds: props.initialData?.additionalGroupIds || [],
         fields: props.initialData?.fields || defaultFields,
         aliases: props.initialData?.aliases || [],
         pinned: props.initialData?.pinned || false,
@@ -67,6 +71,10 @@ export default function TrackerFormV2(props: TrackerFormProps) {
       name: group.name,
       path: group.path,
     })),
+  );
+  const selectableGroups = createMemo(() => props.groups.filter((group) => group.allowsTrackers));
+  const additionalGroupOptions = createMemo(() =>
+    selectableGroups().filter((group) => group._id !== groupId()),
   );
   const aiContextLines = createMemo(() => {
     const groupLines =
@@ -173,16 +181,17 @@ export default function TrackerFormV2(props: TrackerFormProps) {
         await props.onSubmit(data);
 
         // Reset
-        setJsonValue(
-          JSON.stringify(
-            {
-              label: '',
-              tag: '',
-              groupId: '',
-              fields: defaultFields,
-              aliases: [],
-              pinned: false,
-              sortOrder: 0,
+          setJsonValue(
+            JSON.stringify(
+              {
+                label: '',
+                tag: '',
+                groupId: '',
+                additionalGroupIds: [],
+                fields: defaultFields,
+                aliases: [],
+                pinned: false,
+                sortOrder: 0,
               archived: false,
             },
             null,
@@ -208,6 +217,9 @@ export default function TrackerFormV2(props: TrackerFormProps) {
           label: label().trim(),
           fields: fields(),
           groupId: groupId(),
+          additionalGroupIds: Array.from(
+            new Set(additionalGroupIds().filter((id) => id && id !== groupId())),
+          ),
           aliases: aliases()
             .split(',')
             .map((a) => a.trim())
@@ -221,6 +233,7 @@ export default function TrackerFormV2(props: TrackerFormProps) {
         setLabel('');
         setTag('');
         setGroupId('');
+        setAdditionalGroupIds([]);
         setFields(defaultFields);
         setAliases('');
         setPinned(false);
@@ -328,6 +341,9 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                     value={groupId()}
                     onChange={(e) => {
                       setGroupId(e.currentTarget.value);
+                      setAdditionalGroupIds((prev) =>
+                        prev.filter((id) => id !== e.currentTarget.value),
+                      );
                       if (validationErrors().groupId) {
                         const errors = { ...validationErrors() };
                         delete errors.groupId;
@@ -339,7 +355,7 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                     <option value="" disabled>
                       Select a group
                     </option>
-                    <For each={props.groups.filter((g) => g.allowsTrackers)}>
+                    <For each={selectableGroups()}>
                       {(group) => (
                         <option value={group._id}>
                           {'  '.repeat(group.depth)}
@@ -356,6 +372,57 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                       Where this tracker belongs
                     </p>
                   </Show>
+                </div>
+
+                {/* Additional Groups */}
+                <div class="form-control">
+                  <label class="mb-2 block">
+                    <span class="text-base-content text-sm font-semibold sm:text-base">
+                      Additional Groups
+                    </span>
+                  </label>
+                  <div class="border-base-300 bg-base-200/50 space-y-2 rounded-xl border p-3">
+                    <Show
+                      when={additionalGroupOptions().length > 0}
+                      fallback={
+                        <p class="text-base-content/60 text-xs sm:text-sm">
+                          No other groups available.
+                        </p>
+                      }
+                    >
+                      <For each={additionalGroupOptions()}>
+                        {(group) => (
+                          <label class="border-base-content/10 hover:border-primary/30 bg-base-100 flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 transition-colors">
+                            <input
+                              type="checkbox"
+                              class="checkbox checkbox-primary mt-0.5"
+                              checked={additionalGroupIds().includes(group._id)}
+                              onChange={(e) => {
+                                const checked = e.currentTarget.checked;
+                                setAdditionalGroupIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (checked) {
+                                    next.add(group._id);
+                                  } else {
+                                    next.delete(group._id);
+                                  }
+                                  next.delete(groupId());
+                                  return Array.from(next);
+                                });
+                              }}
+                            />
+                            <span class="text-sm">
+                              {'  '.repeat(group.depth)}
+                              {group.name}
+                            </span>
+                          </label>
+                        )}
+                      </For>
+                    </Show>
+                  </div>
+                  <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
+                    Show this tracker under multiple groups.
+                  </p>
                 </div>
               </div>
 
@@ -534,11 +601,11 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                 </div>
               </Show>
 
-              <JsonEditor
-                value={jsonValue()}
-                onChange={setJsonValue}
-                schema={trackerSchema}
-                height="600px"
+                <JsonEditor
+                  value={jsonValue()}
+                  onChange={setJsonValue}
+                  schema={trackerSchema}
+                  height="600px"
               />
             </div>
           </Show>

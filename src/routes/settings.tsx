@@ -74,6 +74,35 @@ export default function Settings() {
     }));
   };
 
+  const updateAppearanceHistoryView = (value: 'day' | 'week' | 'month') => {
+    setSettings((prev) => ({
+      ...prev,
+      appearance: {
+        ...prev.appearance,
+        defaultHistoryView: value,
+      },
+    }));
+  };
+
+  const updateAppearanceHistoryStartHour = (value: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      appearance: {
+        ...prev.appearance,
+        historyStartHour: value,
+      },
+    }));
+  };
+
+  const formatHourOption = (hour: number) => {
+    const date = new Date();
+    date.setHours(hour, 0, 0, 0);
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      hour12: settings().appearance.timeFormat === '12h',
+    });
+  };
+
   const updateQuickAdd = (field: 'showSessionTimer' | 'usePopup', value: boolean) => {
     setSettings((prev) => ({
       ...prev,
@@ -389,6 +418,52 @@ export default function Settings() {
                 </button>
               </div>
             </div>
+
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+                  Default history view
+                </span>
+              </div>
+              <select
+                class="select select-bordered w-full"
+                value={settings().appearance.defaultHistoryView}
+                onChange={(e) =>
+                  updateAppearanceHistoryView(
+                    e.currentTarget.value as 'day' | 'week' | 'month',
+                  )
+                }
+              >
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+              </select>
+              <div class="text-base-content/50 mt-2 text-xs">
+                Small screens always use Day view.
+              </div>
+            </label>
+
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+                  History start hour
+                </span>
+              </div>
+              <select
+                class="select select-bordered w-full"
+                value={settings().appearance.historyStartHour}
+                onChange={(e) =>
+                  updateAppearanceHistoryStartHour(Number(e.currentTarget.value))
+                }
+              >
+                <For each={Array.from({ length: 24 }, (_, hour) => hour)}>
+                  {(hour) => <option value={hour}>{formatHourOption(hour)}</option>}
+                </For>
+              </select>
+              <div class="text-base-content/50 mt-2 text-xs">
+                Applies to day and week grids.
+              </div>
+            </label>
           </div>
         </section>
 
