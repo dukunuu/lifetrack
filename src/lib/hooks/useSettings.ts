@@ -9,11 +9,10 @@ export interface AppSettings {
     apiKey: string;
   };
   ai: {
-    provider: 'openrouter' | 'openai';
+    provider: 'openrouter';
     openRouterApiKey: string;
     openRouterModel: string;
-    openAiApiKey: string;
-    openAiModel: string;
+    openRouterImageModel: string;
   };
   appearance: {
     theme: string;
@@ -40,8 +39,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     provider: 'openrouter',
     openRouterApiKey: '',
     openRouterModel: 'openai/gpt-4o-mini',
-    openAiApiKey: '',
-    openAiModel: 'gpt-4o-mini',
+    openRouterImageModel: 'openai/gpt-5-image-mini',
   },
   appearance: {
     theme: 'lifetrack',

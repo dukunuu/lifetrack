@@ -433,15 +433,16 @@ export default function GoalFormV2(props: GoalFormProps) {
       setStartDate('');
       setEndDate('');
       setAggregation('sum');
-      setRollover(false);
-      setIcon('');
-      setColor('');
+        setRollover(false);
+        setIcon('');
+        setColor('');
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setSubmitting(false);
     }
   };
+
 
   return (
     <div class="flex h-full flex-col">

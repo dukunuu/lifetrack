@@ -85,9 +85,20 @@
     border: 1px solid transparent;
     border-radius: 0.75rem;
     padding: 0.5rem 0.75rem;
+    opacity: 1 !important;
     transition:
       border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
       background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .quickadd-menu {
+    background: oklch(var(--b2)) !important;
+    background-color: oklch(var(--b2)) !important;
+    opacity: 1 !important;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
   .quickadd-suggestion:hover,
@@ -97,8 +108,8 @@
   }
 
   .has-quickadd {
-    --quickadd-offset: 9rem;
-    padding-bottom: calc(var(--quickadd-offset) + 1.5rem + env(safe-area-inset-bottom, 0px));
+    --quickadd-offset: 10rem;
+    padding-bottom: calc(var(--quickadd-offset) + 2rem + env(safe-area-inset-bottom, 0px));
   }
 
   .fab-quickadd-offset {
@@ -107,7 +118,7 @@
 
   @media (min-width: 640px) {
     .has-quickadd {
-      --quickadd-offset: 7.5rem;
+      --quickadd-offset: 9rem;
       padding-bottom: calc(var(--quickadd-offset) + 2rem + env(safe-area-inset-bottom, 0px));
     }
 

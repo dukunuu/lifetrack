@@ -90,12 +90,12 @@ export default function Home() {
                         <div class="relative space-y-3 p-5">
                           <div class="flex w-full items-center gap-3">
                             <div class="flex min-w-0 flex-1 items-center gap-3">
-                              <div class="bg-base-200/70 flex size-10 items-center justify-center rounded-xl">
+                              <div class="flex size-10 items-center justify-center rounded-xl">
                                 <Show
                                   when={item.goal.icon}
                                   fallback={<Target class="text-primary size-5" />}
                                 >
-                                  <span class="text-xl">{item.goal.icon}</span>
+                                  <span class="text-2xl leading-none">{item.goal.icon}</span>
                                 </Show>
                               </div>
                               <div class="min-w-0 flex-1">

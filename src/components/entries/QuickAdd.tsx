@@ -1,11 +1,13 @@
 import { Show, For, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
-import { Zap, Hash, Pin, Clock, Command } from 'lucide-solid';
+import { Zap, Hash, Pin, Clock, Command, Paperclip, X } from 'lucide-solid';
 import { Tokenizer } from '../../lib/services/parser/tokenizer';
 import { useGroups } from '../../lib/hooks/useGroups';
 import { useTrackers } from '../../lib/hooks/useTrackers';
 import { useQuickAdd } from '../../lib/hooks/useQuickAdd';
 import { useSession } from '../../lib/hooks/useSession';
 import { useSettings } from '../../lib/hooks/useSettings';
+import { readFileAsDataUrl } from '../../lib/services/image-service';
+import ImagePreview from '../common/ImagePreview';
 
 const tokenizer = new Tokenizer();
 
@@ -20,6 +22,8 @@ export default function QuickAdd(props: QuickAddProps) {
   const {
     input,
     setInput,
+    attachment,
+    setAttachment,
     suggestions,
     selectedIndex,
     showSuggestions,
@@ -211,6 +215,32 @@ export default function QuickAdd(props: QuickAddProps) {
     inputRef?.focus();
   };
 
+  const handleAttachmentUpload = async (e: Event) => {
+    const inputEl = e.currentTarget as HTMLInputElement;
+    const file = inputEl.files?.[0];
+    if (!file) return;
+    const dataUrl = await readFileAsDataUrl(file);
+    setAttachment(dataUrl);
+    inputEl.value = '';
+  };
+
+  const handlePaste = async (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageItem = Array.from(items).find(
+      (item) => item.kind === 'file' && item.type.startsWith('image/')
+    );
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    e.preventDefault();
+    const dataUrl = await readFileAsDataUrl(file);
+    setAttachment(dataUrl);
+  };
+
   return (
     <div
       class="bg-base-200 border-primary/10 relative rounded-2xl border shadow-2xl"
@@ -278,13 +308,23 @@ export default function QuickAdd(props: QuickAddProps) {
                 value={input()}
                 onInput={(e) => setInput(e.currentTarget.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 placeholder="Type a command... e.g., #coffee #workout 30min"
                 class="input input-bordered bg-base-100/50 border-base-300/50 focus:border-primary/50 w-full transition-colors"
                 disabled={loading()}
               />
+              <label class="btn btn-ghost btn-sm btn-square absolute right-1 top-1">
+                <Paperclip class="size-4" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  onChange={handleAttachmentUpload}
+                />
+              </label>
 
               <div
-                class="flex flex-col gap-2"
+                class="flex bg-base-200 flex-col gap-2"
                 classList={{
                   'absolute bottom-full left-0 right-0 mb-2': props.openUp,
                   'z-20': props.openUp,
@@ -352,7 +392,7 @@ export default function QuickAdd(props: QuickAddProps) {
                 <Show when={showSuggestions() && suggestions().length > 0}>
                   <ul
                     ref={dropdownRef}
-                    class="menu bg-base-200 rounded-box border-base-300 max-h-96 overflow-x-hidden overflow-y-auto border p-2 shadow-2xl"
+                    class="quickadd-menu bg-base-200 rounded-box border-base-300 max-h-96 overflow-x-hidden overflow-y-auto border p-2 shadow-2xl"
                     classList={{ 'mt-2': !props.openUp }}
                   >
                     <For each={suggestions()}>
@@ -379,6 +419,7 @@ export default function QuickAdd(props: QuickAddProps) {
                                 '--accent-color-soft': accentColor
                                   ? `${accentColor}1A`
                                   : 'oklch(var(--p) / 0.12)',
+                                'background-color': 'oklch(var(--b2))',
                                 'box-shadow': accentColor ? `0 0 20px ${accentColor}22` : undefined,
                               }}
                               onClick={() => selectSuggestion(suggestion)}
@@ -468,6 +509,23 @@ export default function QuickAdd(props: QuickAddProps) {
               </div>
             </div>
           </div>
+
+          <Show when={attachment()}>
+            <div class="border-base-300/60 bg-base-200/60 mt-3 flex items-center gap-3 rounded-xl border px-3 py-2">
+              <div class="relative h-14 w-14 overflow-hidden rounded-lg border border-base-300/60">
+                <ImagePreview src={attachment()} alt="Attachment" class="h-full w-full object-cover" />
+              </div>
+              <div class="text-base-content/70 text-xs">Image attached</div>
+              <button
+                type="button"
+                class="btn btn-ghost btn-xs ml-auto"
+                onClick={() => setAttachment('')}
+                aria-label="Remove attachment"
+              >
+                <X class="size-3" />
+              </button>
+            </div>
+          </Show>
 
           {/* Error Display */}
           <Show when={error()}>

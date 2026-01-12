@@ -10,7 +10,7 @@ export function useSessions() {
   const loadSessions = async () => {
     try {
       setLoading(true);
-      const result = await sessionRepo.findRecent(30);
+      const result = await sessionRepo.findRecentSummary(30);
       setSessions(result);
       setError(null);
     } catch (err) {

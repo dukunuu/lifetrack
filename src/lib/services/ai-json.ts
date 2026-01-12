@@ -1,8 +1,7 @@
-import OpenAI from 'openai';
 import { jsonrepair } from 'jsonrepair';
 
 interface AiJsonOptions {
-  provider: 'openrouter' | 'openai';
+  provider: 'openrouter';
   apiKey: string;
   model: string;
   schema: Record<string, unknown>;
@@ -72,20 +71,6 @@ const requestOpenRouter = async (options: AiJsonOptions, systemPrompt: string) =
   return data?.choices?.[0]?.message?.content;
 };
 
-const requestOpenAi = async (options: AiJsonOptions, systemPrompt: string) => {
-  const client = new OpenAI({ apiKey: options.apiKey, dangerouslyAllowBrowser: true });
-  const response = await client.chat.completions.create({
-    model: options.model,
-    temperature: 0.2,
-    max_tokens: 900,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: options.prompt },
-    ],
-  });
-  return response.choices[0]?.message?.content;
-};
-
 export const generateJsonFromSchema = async (options: AiJsonOptions) => {
   const schemaText = JSON.stringify(options.schema, null, 2);
   const systemPrompt = [
@@ -98,10 +83,7 @@ export const generateJsonFromSchema = async (options: AiJsonOptions) => {
     schemaText,
   ].join('\n');
 
-  const content =
-    options.provider === 'openai'
-      ? await requestOpenAi(options, systemPrompt)
-      : await requestOpenRouter(options, systemPrompt);
+  const content = await requestOpenRouter(options, systemPrompt);
   if (typeof content !== 'string' || !content.trim()) {
     throw new Error('AI response was empty.');
   }

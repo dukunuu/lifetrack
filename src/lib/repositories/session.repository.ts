@@ -1,5 +1,6 @@
 import { BaseRepository } from './base.repository';
 import { generateId, timestamp } from '../db/utils';
+import { db } from '../db';
 import type { Session, SessionType, SessionStatus, QueryOptions } from '../db/types';
 
 export class SessionRepository extends BaseRepository<Session> {
@@ -44,6 +45,14 @@ export class SessionRepository extends BaseRepository<Session> {
     });
 
     return result;
+  }
+
+  async findRecentSummary(limit: number = 20): Promise<Session[]> {
+    const result = await this.findRecent(limit);
+    return result.map((session) => ({
+      ...session,
+      chatMessages: undefined,
+    }));
   }
 
   async startSession(type: SessionType, groupId?: string, name?: string): Promise<Session> {
@@ -179,6 +188,20 @@ export class SessionRepository extends BaseRepository<Session> {
     return this.update(sessionId, {
       chatMessages,
     });
+  }
+
+  async deleteChatSession(sessionId: string): Promise<void> {
+    const session = await this.findById(sessionId);
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const hasImages = (session.chatMessages ?? []).some((msg) => msg.imageDataUrl);
+    await this.delete(sessionId);
+
+    if (hasImages) {
+      await db.compact();
+    }
   }
 
   async getSessionDuration(sessionId: string): Promise<number> {

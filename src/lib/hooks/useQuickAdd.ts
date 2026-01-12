@@ -31,6 +31,7 @@ export function useQuickAdd() {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const [input, setInput] = createSignal('');
+  const [attachment, setAttachment] = createSignal('');
   const [suggestions, setSuggestions] = createSignal<AutocompleteSuggestion[]>([]);
   const [selectedIndex, setSelectedIndex] = createSignal(0);
   const [showSuggestions, setShowSuggestions] = createSignal(false);
@@ -102,7 +103,7 @@ export function useQuickAdd() {
       }
 
       const query = lower.slice(1).trim();
-      const commandSuggestions = [
+      const commandSuggestions: CommandSuggestion[] = [
         ...buildCommandSuggestions(activeSession ? activeSession.name ?? 'session' : undefined),
         {
           type: 'command' as const,
@@ -300,14 +301,43 @@ export function useQuickAdd() {
 
       // Parse input
       const parseResult = await parserService.parse(value);
+      const attachmentDataUrl = attachment();
 
       if (parseResult.errors.length > 0) {
-        const errorMsg = parseResult.errors.map((e) => e.message).join('; ');
-        throw new Error(errorMsg);
+        const firstTracker = parseResult.trackerData[0]?.tracker;
+        if (attachmentDataUrl && firstTracker) {
+          const photoFields = firstTracker.fields.filter((field) => field.type === 'photo');
+          const filteredErrors = parseResult.errors.filter(
+            (err) =>
+              !photoFields.some((field) => err.message.includes(`"${field.label}"`)) ||
+              err.tag !== firstTracker.tag,
+          );
+          if (filteredErrors.length > 0) {
+            const errorMsg = filteredErrors.map((e) => e.message).join('; ');
+            throw new Error(errorMsg);
+          }
+        } else {
+          const errorMsg = parseResult.errors.map((e) => e.message).join('; ');
+          throw new Error(errorMsg);
+        }
       }
 
       if (parseResult.trackerData.length === 0) {
         throw new Error('No trackers found in input');
+      }
+
+      if (attachmentDataUrl) {
+        if (parseResult.trackerData.length !== 1) {
+          throw new Error('Attach images with a single tracker tag.');
+        }
+        const tracker = parseResult.trackerData[0].tracker;
+        const photoField = tracker.fields
+          .filter((field) => field.type === 'photo')
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0];
+        if (!photoField) {
+          throw new Error('This tracker does not accept image attachments.');
+        }
+        parseResult.trackerData[0].values[photoField.name] = attachmentDataUrl;
       }
 
       // Create entry or append to session
@@ -362,6 +392,7 @@ export function useQuickAdd() {
 
       // Clear input
       setInput('');
+      setAttachment('');
       setShowSuggestions(false);
     } catch (err) {
       setError(err as Error);
@@ -439,6 +470,8 @@ export function useQuickAdd() {
   return {
     input,
     setInput,
+    attachment,
+    setAttachment,
     suggestions,
     selectedIndex,
     showSuggestions,

@@ -1,6 +1,7 @@
 import { Show, For } from 'solid-js';
 import { Clock, Hash, Check, X, FileText } from 'lucide-solid';
-import type { Entry, Tracker, Group } from '../../lib/db/types';
+import ImagePreview from '../common/ImagePreview';
+import type { Entry, Tracker, Group, FieldDefinition } from '../../lib/db/types';
 
 interface EntryCardProps {
   entry: Entry;
@@ -91,6 +92,15 @@ export default function EntryCard(props: EntryCardProps) {
               const groupIcon = group?.icon;
               const groupName = group?.name;
               const accentColor = group?.color;
+              const fieldMap = new Map<string, FieldDefinition>();
+              tracker?.fields.forEach((field) => fieldMap.set(field.name, field));
+              const photoEntries = Object.entries(data.values).filter(
+                ([fieldName, value]) =>
+                  fieldMap.get(fieldName)?.type === 'photo' && typeof value === 'string',
+              );
+              const textEntries = Object.entries(data.values).filter(
+                ([fieldName, value]) => fieldMap.get(fieldName)?.type !== 'photo' && value !== null,
+              );
               const blockStyle = accentColor
                 ? {
                     borderColor: accentColor,
@@ -130,16 +140,14 @@ export default function EntryCard(props: EntryCardProps) {
                     </div>
                   </div>
                   <div class="flex flex-wrap items-center gap-2">
-                    <For each={Object.entries(data.values)}>
+                    <For each={textEntries}>
                       {([fieldName, value]) => (
-                        <Show when={value !== null && value !== undefined}>
-                          <div class="badge badge-ghost gap-1">
-                            <span class="text-base-content/50">{fieldName}:</span>
-                            <span class="font-semibold">
-                              {formatFieldValue(value, data.trackerId, fieldName)}
-                            </span>
-                          </div>
-                        </Show>
+                        <div class="badge badge-ghost gap-1">
+                          <span class="text-base-content/50">{fieldName}:</span>
+                          <span class="font-semibold">
+                            {formatFieldValue(value, data.trackerId, fieldName)}
+                          </span>
+                        </div>
                       )}
                     </For>
 
@@ -157,6 +165,22 @@ export default function EntryCard(props: EntryCardProps) {
                       </div>
                     </Show>
                   </div>
+                  <Show when={photoEntries.length > 0}>
+                    <div class="mt-3 grid grid-cols-3 gap-2">
+                      <For each={photoEntries}>
+                        {([fieldName, value]) => (
+                          <div class="border-base-300/60 overflow-hidden rounded-lg border">
+                            <ImagePreview
+                              src={value as string}
+                              alt={`${tracker?.label || data.trackerTag} ${fieldName}`}
+                              class="h-24 w-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
                 </div>
               );
             }}

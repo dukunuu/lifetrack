@@ -106,6 +106,8 @@ export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
   createdAt: string;
+  imageDataUrl?: string;
+  imagePrompt?: string;
 }
 
 export interface Session extends BaseDocument {

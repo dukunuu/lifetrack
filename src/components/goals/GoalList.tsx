@@ -1,9 +1,11 @@
 import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
 import type { Entry, Goal, Group, PagedResult, Tracker } from '../../lib/db/types';
-import { Target, Edit, Trash2, Archive, Users, Folder, Pin } from 'lucide-solid';
+import { X } from 'lucide-solid';
 import { computeGoalProgress } from '../../lib/services/goal-progress';
 import SearchInput from '../common/SearchInput';
 import type { GoalSearchOptions } from '../../lib/repositories';
+import GoalCard from './GoalCard';
+import EntryCard from '../entries/EntryCard';
 
 interface GoalListProps {
   goals: Goal[];
@@ -17,14 +19,9 @@ interface GoalListProps {
   onTogglePin?: (goal: Goal) => void;
 }
 
-const formatNumber = (value: number) => {
-  if (!Number.isFinite(value)) return '0';
-  if (Math.abs(value % 1) < 0.001) return Math.round(value).toString();
-  return value.toFixed(1);
-};
-
 export default function GoalList(props: GoalListProps) {
   const [searchQuery, setSearchQuery] = createSignal('');
+  const [selectedGoal, setSelectedGoal] = createSignal<Goal | null>(null);
 
   const [activeSearchResults] = createResource(
     () => ({
@@ -73,110 +70,35 @@ export default function GoalList(props: GoalListProps) {
     return map;
   });
 
-  const renderGoalCard = (goal: Goal, index: number, archived: boolean) => {
-    const progress = progressMap().get(goal._id);
+  const trackerMap = createMemo(() => {
+    const map = new Map<string, Tracker>();
+    props.trackers.forEach((tracker) => map.set(tracker._id, tracker));
+    return map;
+  });
 
-    return (
-      <div
-        class={`accent-card card bg-base-300/80 border-base-content/10 animate-fade-in-up border shadow-md transition-all duration-300 hover:shadow-xl ${
-          archived ? 'opacity-60 hover:opacity-80' : ''
-        }`}
-        style={{
-          'border-left': goal.color ? `2px solid ${goal.color}` : undefined,
-          '--accent-color': goal.color || 'oklch(var(--p))',
-          'animation-delay': `${index * 40}ms`,
-        }}
-      >
-        <div class="card-body">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex min-w-0 items-start gap-3">
-              <div class="bg-base-200 grid h-11 w-11 place-items-center rounded-2xl">
-                <Show when={goal.icon} fallback={<Target size={20} class="text-primary" />}>
-                  <span class="text-xl">{goal.icon}</span>
-                </Show>
-              </div>
-              <div class="min-w-0">
-                <h3 class="truncate text-lg font-semibold">{goal.name}</h3>
-                <Show when={goal.description}>
-                  <p class="text-base-content/60 mt-1 line-clamp-2 text-sm">{goal.description}</p>
-                </Show>
-                <div class="text-base-content/60 mt-2 flex min-w-0 flex-wrap gap-2 text-xs">
-                  <span class="badge badge-outline badge-sm">{goal.type}</span>
-                  <span class="badge badge-outline badge-sm">{goal.period}</span>
-                  <span class="badge badge-outline badge-sm">
-                    <Show when={goal.groupId} fallback={<Users size={12} />}>
-                      <Folder size={12} />
-                    </Show>
-                    <span class="ml-1 max-w-[140px] truncate">
-                      {progress?.scopeLabel || 'No scope'}
-                    </span>
-                  </span>
-                </div>
-              </div>
-            </div>
+  const groupMap = createMemo(() => {
+    const map = new Map<string, Group>();
+    props.groups.forEach((group) => map.set(group._id, group));
+    return map;
+  });
 
-            <div class="flex flex-shrink-0 items-center gap-1">
-              <button
-                class={`btn btn-ghost btn-sm hover:bg-primary/10 transition-colors ${goal.pinned ? 'text-primary' : ''}`}
-                onClick={() => props.onTogglePin?.(goal)}
-                title={goal.pinned ? 'Unpin' : 'Pin'}
-              >
-                <Pin size={16} class={goal.pinned ? 'fill-current' : ''} />
-              </button>
-              <button
-                class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary transition-colors"
-                onClick={() => props.onEdit?.(goal)}
-                title="Edit"
-              >
-                <Edit size={16} />
-              </button>
-              <button
-                class="btn btn-ghost btn-sm hover:bg-warning/10 hover:text-warning transition-colors"
-                onClick={() => props.onToggleArchive?.(goal)}
-                title={archived ? 'Unarchive' : 'Archive'}
-              >
-                <Archive size={16} />
-              </button>
-              <button
-                class="btn btn-ghost btn-sm hover:bg-error/10 text-error transition-colors"
-                onClick={() => props.onDelete?.(goal)}
-                title="Delete"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          </div>
+  const entriesForGoal = createMemo(() => {
+    const goal = selectedGoal();
+    if (!goal) return [];
 
-          <Show when={progress}>
-            {(data) => (
-              <div class="mt-4 space-y-2">
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-base-content/70">{data().detailLabel}</span>
-                  <span class="text-base-content/80 font-semibold tabular-nums">
-                    {formatNumber(data().current)} / {formatNumber(data().target)}
-                    {goal.targetUnit ? ` ${goal.targetUnit}` : ''}
-                  </span>
-                </div>
-                <div class="bg-base-300/30 h-2 overflow-hidden rounded-full">
-                  <div
-                    class="h-full rounded-full transition-all"
-                    style={{
-                      width: `${data().percent}%`,
-                      'background-color': goal.color || 'var(--fallback-p,oklch(var(--p)))',
-                    }}
-                  />
-                </div>
-                <div class="text-base-content/50 flex items-center justify-between text-xs">
-                  <span>{data().periodLabel}</span>
-                  <span class="tabular-nums">{data().percent.toFixed(1)}%</span>
-                </div>
-              </div>
-            )}
-          </Show>
-        </div>
-      </div>
+    if (goal.groupId) {
+      return props.entries.filter((entry) => entry.groupId === goal.groupId);
+    }
+
+    const trackerSet = new Set(goal.trackerIds);
+    return props.entries.filter((entry) =>
+      entry.data.some((item) => trackerSet.has(item.trackerId)),
     );
-  };
+  });
+
+  const sortedEntries = createMemo(() =>
+    [...entriesForGoal()].sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+  );
 
   return (
     <div class="space-y-6">
@@ -206,7 +128,19 @@ export default function GoalList(props: GoalListProps) {
         >
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <For each={activeSearchResults().items}>
-              {(goal, index) => renderGoalCard(goal, index(), false)}
+              {(goal, index) => (
+                <GoalCard
+                  goal={goal}
+                  progress={progressMap().get(goal._id)}
+                  archived={false}
+                  index={index()}
+                  onEdit={props.onEdit}
+                  onDelete={props.onDelete}
+                  onToggleArchive={props.onToggleArchive}
+                  onTogglePin={props.onTogglePin}
+                  onView={(item) => setSelectedGoal(item)}
+                />
+              )}
             </For>
           </div>
         </Show>
@@ -224,9 +158,61 @@ export default function GoalList(props: GoalListProps) {
           </div>
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <For each={archivedSearchResults().items}>
-              {(goal, index) => renderGoalCard(goal, index(), true)}
+              {(goal, index) => (
+                <GoalCard
+                  goal={goal}
+                  progress={progressMap().get(goal._id)}
+                  archived
+                  index={index()}
+                  onEdit={props.onEdit}
+                  onDelete={props.onDelete}
+                  onToggleArchive={props.onToggleArchive}
+                  onTogglePin={props.onTogglePin}
+                  onView={(item) => setSelectedGoal(item)}
+                />
+              )}
             </For>
           </div>
+        </div>
+      </Show>
+
+      <Show when={selectedGoal()}>
+        <div class="modal modal-open backdrop-blur-sm">
+          <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-4xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
+            <div class="border-base-content/10 flex items-center justify-between border-b px-6 py-4">
+              <div>
+                <div class="text-base-content/60 text-xs font-semibold uppercase tracking-widest">
+                  Goal entries
+                </div>
+                <h3 class="text-xl font-bold">{selectedGoal()!.name}</h3>
+              </div>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm"
+                onClick={() => setSelectedGoal(null)}
+                aria-label="Close"
+              >
+                <X class="size-4" />
+              </button>
+            </div>
+            <div class="max-h-[75vh] space-y-4 overflow-y-auto px-6 py-4">
+              <Show
+                when={sortedEntries().length > 0}
+                fallback={
+                  <div class="text-base-content/50 rounded-xl border border-dashed p-6 text-center text-sm">
+                    No entries match this goal yet.
+                  </div>
+                }
+              >
+                <For each={sortedEntries()}>
+                  {(entry) => (
+                    <EntryCard entry={entry} trackerMap={trackerMap()} groupMap={groupMap()} />
+                  )}
+                </For>
+              </Show>
+            </div>
+          </div>
+          <div class="modal-backdrop" onClick={() => setSelectedGoal(null)} />
         </div>
       </Show>
     </div>

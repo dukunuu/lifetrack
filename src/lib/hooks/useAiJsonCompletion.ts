@@ -16,12 +16,7 @@ export const useAiJsonCompletion = (options: AiJsonCompletionOptions) => {
   const [aiLoading, setAiLoading] = createSignal(false);
   const [aiError, setAiError] = createSignal<string | null>(null);
 
-  const aiEnabled = createMemo(() => {
-    if (settings().ai.provider === 'openai') {
-      return settings().ai.openAiApiKey.trim().length > 0;
-    }
-    return settings().ai.openRouterApiKey.trim().length > 0;
-  });
+  const aiEnabled = createMemo(() => settings().ai.openRouterApiKey.trim().length > 0);
 
   const reduceMotion = createMemo(() => settings().appearance.reduceMotion);
 
@@ -39,15 +34,9 @@ export const useAiJsonCompletion = (options: AiJsonCompletionOptions) => {
 
     try {
       const result = await generateJsonFromSchema({
-        provider: settings().ai.provider,
-        apiKey:
-          settings().ai.provider === 'openai'
-            ? settings().ai.openAiApiKey.trim()
-            : settings().ai.openRouterApiKey.trim(),
-        model:
-          settings().ai.provider === 'openai'
-            ? settings().ai.openAiModel
-            : settings().ai.openRouterModel,
+        provider: 'openrouter',
+        apiKey: settings().ai.openRouterApiKey.trim(),
+        model: settings().ai.openRouterModel,
         schema: options.schema,
         prompt: promptParts.join('\n'),
       });

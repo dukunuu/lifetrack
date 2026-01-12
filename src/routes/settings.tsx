@@ -2,7 +2,7 @@ import { For, Show, createSignal } from 'solid-js';
 import { Cloud, Sparkles, Palette, SlidersHorizontal, Eye, EyeOff } from 'lucide-solid';
 import { useSettings } from '../lib/hooks/useSettings';
 import { destroyDatabase } from '../lib/db';
-import { OPENAI_MODELS, OPENROUTER_MODELS } from '../lib/constants/ai-models';
+import { OPENROUTER_MODELS } from '../lib/constants/ai-models';
 
 const THEMES = [
   { id: 'lifetrack', label: 'Lifetrack (default)' },
@@ -31,10 +31,7 @@ export default function Settings() {
     }));
   };
 
-  const updateAi = (
-    field: 'provider' | 'openRouterApiKey' | 'openRouterModel' | 'openAiApiKey' | 'openAiModel',
-    value: string,
-  ) => {
+  const updateAi = (field: 'openRouterApiKey' | 'openRouterModel', value: string) => {
     setSettings((prev) => ({
       ...prev,
       ai: {
@@ -237,7 +234,7 @@ export default function Settings() {
             </div>
             <div>
               <h2 class="text-lg font-bold">AI</h2>
-              <p class="text-base-content/60 text-sm">Choose a provider for AI features.</p>
+              <p class="text-base-content/60 text-sm">Configure OpenRouter for AI features.</p>
             </div>
           </div>
 
@@ -245,114 +242,50 @@ export default function Settings() {
             <label class="form-control w-full">
               <div class="label">
                 <span class="label-text text-base-content/60 text-xs font-semibold tracking-wide uppercase">
-                  Provider
+                  OpenRouter API key
+                </span>
+              </div>
+              <div class="flex gap-2">
+                <input
+                  class="input input-bordered flex-1"
+                  type={showOpenRouterKey() ? 'text' : 'password'}
+                  value={settings().ai.openRouterApiKey}
+                  onInput={(e) => updateAi('openRouterApiKey', e.currentTarget.value)}
+                  placeholder="or-..."
+                />
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-square"
+                  onClick={() => setShowOpenRouterKey((prev) => !prev)}
+                  aria-label={showOpenRouterKey() ? 'Hide API key' : 'Show API key'}
+                >
+                  <Show when={showOpenRouterKey()} fallback={<Eye class="size-4" />}>
+                    <EyeOff class="size-4" />
+                  </Show>
+                </button>
+              </div>
+            </label>
+
+            <label class="form-control w-full">
+              <div class="label">
+                <span class="label-text text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+                  OpenRouter model
                 </span>
               </div>
               <select
                 class="select select-bordered w-full"
-                value={settings().ai.provider}
-                onChange={(e) => updateAi('provider', e.currentTarget.value)}
+                value={settings().ai.openRouterModel}
+                onChange={(e) => updateAi('openRouterModel', e.currentTarget.value)}
               >
-                <option value="openrouter">OpenRouter</option>
-                <option value="openai">OpenAI</option>
+                <For each={OPENROUTER_MODELS}>
+                  {(model) => <option value={model}>{model}</option>}
+                </For>
               </select>
             </label>
 
-            <Show when={settings().ai.provider === 'openrouter'}>
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-base-content/60 text-xs font-semibold tracking-wide uppercase">
-                    OpenRouter API key
-                  </span>
-                </div>
-                <div class="flex gap-2">
-                  <input
-                    class="input input-bordered flex-1"
-                    type={showOpenRouterKey() ? 'text' : 'password'}
-                    value={settings().ai.openRouterApiKey}
-                    onInput={(e) => updateAi('openRouterApiKey', e.currentTarget.value)}
-                    placeholder="or-..."
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-square"
-                    onClick={() => setShowOpenRouterKey((prev) => !prev)}
-                    aria-label={showOpenRouterKey() ? 'Hide API key' : 'Show API key'}
-                  >
-                    <Show when={showOpenRouterKey()} fallback={<Eye class="size-4" />}>
-                      <EyeOff class="size-4" />
-                    </Show>
-                  </button>
-                </div>
-              </label>
-
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-base-content/60 text-xs font-semibold tracking-wide uppercase">
-                    OpenRouter model
-                  </span>
-                </div>
-                <select
-                  class="select select-bordered w-full"
-                  value={settings().ai.openRouterModel}
-                  onChange={(e) => updateAi('openRouterModel', e.currentTarget.value)}
-                >
-                  <For each={OPENROUTER_MODELS}>
-                    {(model) => <option value={model}>{model}</option>}
-                  </For>
-                </select>
-              </label>
-            </Show>
-
-            <Show when={settings().ai.provider === 'openai'}>
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-base-content/60 text-xs font-semibold tracking-wide uppercase">
-                    OpenAI API key
-                  </span>
-                </div>
-                <div class="flex gap-2">
-                  <input
-                    class="input input-bordered flex-1"
-                    type={showOpenRouterKey() ? 'text' : 'password'}
-                    value={settings().ai.openAiApiKey}
-                    onInput={(e) => updateAi('openAiApiKey', e.currentTarget.value)}
-                    placeholder="sk-..."
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-square"
-                    onClick={() => setShowOpenRouterKey((prev) => !prev)}
-                    aria-label={showOpenRouterKey() ? 'Hide API key' : 'Show API key'}
-                  >
-                    <Show when={showOpenRouterKey()} fallback={<Eye class="size-4" />}>
-                      <EyeOff class="size-4" />
-                    </Show>
-                  </button>
-                </div>
-              </label>
-
-              <label class="form-control w-full">
-                <div class="label">
-                  <span class="label-text text-base-content/60 text-xs font-semibold tracking-wide uppercase">
-                    OpenAI model
-                  </span>
-                </div>
-                <select
-                  class="select select-bordered w-full"
-                  value={settings().ai.openAiModel}
-                  onChange={(e) => updateAi('openAiModel', e.currentTarget.value)}
-                >
-                  <For each={OPENAI_MODELS}>
-                    {(model) => <option value={model}>{model}</option>}
-                  </For>
-                </select>
-              </label>
-            </Show>
-
             <div class="text-base-content/50 text-xs">
-              API keys are stored locally in your browser. AI requests are sent directly to the
-              selected provider.
+              API keys are stored locally in your browser. AI requests are sent directly to
+              OpenRouter.
             </div>
           </div>
         </section>
