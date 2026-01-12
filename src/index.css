@@ -112,6 +112,11 @@
     padding-bottom: calc(var(--quickadd-offset) + 2rem + env(safe-area-inset-bottom, 0px));
   }
 
+  .has-quickadd-fab {
+    --quickadd-fab-offset: 6rem;
+    padding-bottom: calc(var(--quickadd-fab-offset) + env(safe-area-inset-bottom, 0px));
+  }
+
   .fab-quickadd-offset {
     bottom: calc(1.5rem + var(--quickadd-offset, 0px) + env(safe-area-inset-bottom, 0px));
   }
@@ -120,6 +125,11 @@
     .has-quickadd {
       --quickadd-offset: 9rem;
       padding-bottom: calc(var(--quickadd-offset) + 2rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .has-quickadd-fab {
+      --quickadd-fab-offset: 7rem;
+      padding-bottom: calc(var(--quickadd-fab-offset) + env(safe-area-inset-bottom, 0px));
     }
 
     .fab-quickadd-offset {

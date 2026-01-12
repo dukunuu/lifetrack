@@ -17,7 +17,15 @@ type SyncEventEmitter = {
   on(event: 'paused' | 'active', handler: () => void): SyncEventEmitter;
 };
 
-export async function setupSync(remoteUrl: string, username?: string, password?: string) {
+export type SyncController = SyncEventEmitter & {
+  cancel: () => void;
+};
+
+export function setupSync(
+  remoteUrl: string,
+  username?: string,
+  password?: string,
+): SyncController {
   const remote = new PouchDB(remoteUrl, {
     auth: username && password ? { username, password } : undefined,
   });
@@ -27,15 +35,15 @@ export async function setupSync(remoteUrl: string, username?: string, password?:
       sync: (
         remoteDb: PouchDB.Database<Record<string, unknown>>,
         options: unknown,
-      ) => SyncEventEmitter;
+      ) => SyncController;
     }
   ).sync(remote, { live: true, retry: true });
 
-  sync.on('change', (info) => {
+  sync.on('change', (info: unknown) => {
     console.log('Sync change:', info);
   });
 
-  sync.on('error', (err) => {
+  sync.on('error', (err: unknown) => {
     console.error('Sync error:', err);
   });
 

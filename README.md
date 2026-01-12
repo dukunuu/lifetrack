@@ -26,3 +26,26 @@ Your app is ready to be deployed!
 ## Deployment
 
 Learn more about deploying your application with the [documentations](https://vite.dev/guide/static-deploy.html)
+
+## Enable Sync
+
+1. Deploy a CouchDB instance reachable from the browser (HTTPS recommended).
+2. Configure CouchDB CORS to allow your frontend origin.
+3. Create a per-user database and user credentials in CouchDB.
+4. In the app, open Settings -> Sync and enter:
+   - Sync endpoint (example: `https://couch.example.com/dukunuu-db`)
+   - CouchDB username and password
+   - Toggle "Enable sync"
+
+Notes:
+- The endpoint should point directly to the user database.
+- For local dev you may need to allow `http://localhost:5173` in CORS.
+
+## Enable AI Features
+
+1. Create an OpenRouter API key.
+2. In the app, open Settings -> AI and enter the API key.
+3. Select an OpenRouter model if needed.
+
+Notes:
+- API keys are stored locally in the browser settings.

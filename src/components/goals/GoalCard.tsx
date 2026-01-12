@@ -35,7 +35,7 @@ export default function GoalCard(props: GoalCardProps) {
       }}
     >
       <div class="card-body">
-        <div class="flex items-start justify-between gap-3">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex min-w-0 items-start gap-3">
             <div class="flex h-11 w-11 items-center justify-center rounded-2xl">
               <Show when={goal.icon} fallback={<Target size={20} class="text-primary" />}>
@@ -62,7 +62,7 @@ export default function GoalCard(props: GoalCardProps) {
             </div>
           </div>
 
-          <div class="flex flex-shrink-0 items-center gap-1">
+          <div class="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:flex-nowrap">
             <button
               class={`btn btn-ghost btn-sm hover:bg-primary/10 transition-colors ${
                 goal.pinned ? 'text-primary' : ''

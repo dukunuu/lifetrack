@@ -1,8 +1,9 @@
-import { For, Show, createSignal, type ParentComponent } from 'solid-js';
+import { For, Show, createSignal, onCleanup, onMount, type ParentComponent } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { Home, Target, TrendingUp, History, Settings, Menu, Zap, X } from 'lucide-solid';
 import QuickAdd from '../entries/QuickAdd';
 import { useSettings } from '../../lib/hooks/useSettings';
+import { useSync } from '../../lib/hooks/useSync';
 
 const routes = [
   { href: '/', label: 'Dashboard', icon: Home, end: true },
@@ -17,6 +18,8 @@ const Layout: ParentComponent = (props) => {
   const location = useLocation();
   const { settings } = useSettings();
   const [isQuickAddOpen, setIsQuickAddOpen] = createSignal(false);
+  const [isDrawerOpen, setIsDrawerOpen] = createSignal(false);
+  useSync();
 
   const isSettingsRoute = () => location.pathname === '/settings';
   const isHomeRoute = () => location.pathname === '/';
@@ -31,15 +34,32 @@ const Layout: ParentComponent = (props) => {
   const quickAddFabPositionClass = () =>
     isQuickAddCollisionRoute() ? 'right-24 sm:right-28' : 'right-6 sm:right-8';
 
+  onMount(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(min-width: 1024px)');
+    const apply = () => setIsDrawerOpen(media.matches);
+    apply();
+    const handler = (event: MediaQueryListEvent) => setIsDrawerOpen(event.matches);
+    media.addEventListener('change', handler);
+    onCleanup(() => media.removeEventListener('change', handler));
+  });
+
   return (
     <div class="drawer lg:drawer-open">
-      <input id="app-drawer" type="checkbox" class="drawer-toggle" />
+      <input
+        id="app-drawer"
+        type="checkbox"
+        class="drawer-toggle"
+        checked={isDrawerOpen()}
+        onChange={(event) => setIsDrawerOpen(event.currentTarget.checked)}
+      />
 
       {/* Main content */}
       <div
         class="drawer-content bg-base-100 flex min-h-screen flex-col"
         classList={{
           'has-quickadd': showDockedQuickAdd(),
+          'has-quickadd-fab': showQuickAddFab(),
         }}
       >
         {/* Mobile menu button */}
@@ -96,7 +116,7 @@ const Layout: ParentComponent = (props) => {
       </div>
 
       {/* Sidebar */}
-      <div class="drawer-side is-drawer-close:overflow-visible is-drawer-close:-translate-x-full is-drawer-open:translate-x-0 transition-transform duration-300 will-change-transform lg:translate-x-0">
+      <div class="drawer-side is-drawer-close:overflow-visible">
         <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
 
         <div class="bg-base-300 border-base-content/10 is-drawer-close:w-16 is-drawer-open:w-64 transition-cinematic flex min-h-full flex-col border-r transition-[width] duration-300">
@@ -178,7 +198,7 @@ const Layout: ParentComponent = (props) => {
                             }}
                           />
                         </div>
-                        <span class="is-drawer-close:opacity-0 is-drawer-close:w-0 is-drawer-open:opacity-100 overflow-hidden text-sm font-semibold whitespace-nowrap transition-opacity duration-300">
+                        <span class="is-drawer-close:hidden overflow-hidden text-sm font-semibold whitespace-nowrap">
                           {route.label}
                         </span>
                         {isActive() && (
@@ -212,7 +232,7 @@ const Layout: ParentComponent = (props) => {
                   }}
                 />
               </div>
-              <span class="is-drawer-close:opacity-0 is-drawer-close:w-0 is-drawer-open:opacity-100 overflow-hidden text-sm font-semibold whitespace-nowrap transition-opacity duration-300">
+              <span class="is-drawer-close:hidden overflow-hidden text-sm font-semibold whitespace-nowrap">
                 {settingsRoute.label}
               </span>
               {location.pathname === settingsRoute.href && (

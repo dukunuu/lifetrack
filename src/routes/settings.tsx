@@ -1,5 +1,6 @@
 import { For, Show, createSignal } from 'solid-js';
 import { Cloud, Sparkles, Palette, SlidersHorizontal, Eye, EyeOff } from 'lucide-solid';
+import { useSearchParams } from '@solidjs/router';
 import { useSettings } from '../lib/hooks/useSettings';
 import { destroyDatabase } from '../lib/db';
 import { OPENROUTER_MODELS } from '../lib/constants/ai-models';
@@ -13,6 +14,7 @@ const THEMES = [
 
 export default function Settings() {
   const { settings, setSettings, resetSettings } = useSettings();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showSyncKey, setShowSyncKey] = createSignal(false);
   const [showSyncPassword, setShowSyncPassword] = createSignal(false);
   const [showOpenRouterKey, setShowOpenRouterKey] = createSignal(false);
@@ -81,6 +83,19 @@ export default function Settings() {
     }));
   };
 
+  const openHelp = (section: 'sync' | 'ai') => {
+    setSearchParams({ help: section });
+  };
+
+  const closeHelp = () => {
+    setSearchParams({ help: undefined });
+  };
+
+  const helpSection = () => {
+    const value = searchParams.help;
+    return value === 'sync' || value === 'ai' ? value : null;
+  };
+
   const handlePurge = async () => {
     const confirmed = confirm(
       'This will delete all local data (trackers, entries, sessions, goals). This cannot be undone. Continue?',
@@ -123,6 +138,15 @@ export default function Settings() {
               <h2 class="text-lg font-bold">Sync</h2>
               <p class="text-base-content/60 text-sm">CouchDB or custom sync endpoint.</p>
             </div>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm ml-auto"
+              onClick={() => openHelp('sync')}
+              aria-label="Sync help"
+              title="Sync help"
+            >
+              ?
+            </button>
           </div>
 
           <div class="space-y-5">
@@ -236,6 +260,15 @@ export default function Settings() {
               <h2 class="text-lg font-bold">AI</h2>
               <p class="text-base-content/60 text-sm">Configure OpenRouter for AI features.</p>
             </div>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm ml-auto"
+              onClick={() => openHelp('ai')}
+              aria-label="AI help"
+              title="AI help"
+            >
+              ?
+            </button>
           </div>
 
           <div class="space-y-5">
@@ -435,6 +468,57 @@ export default function Settings() {
           </div>
         </section>
       </div>
+
+      <Show when={helpSection()}>
+        <div class="modal modal-open backdrop-blur-sm">
+          <div class="modal-box bg-base-200 border-base-300 relative w-full max-w-2xl border">
+            <button
+              type="button"
+              class="btn btn-sm btn-circle absolute right-4 top-4"
+              aria-label="Close help"
+              onClick={closeHelp}
+            >
+              <span class="text-lg leading-none">×</span>
+            </button>
+            <Show when={helpSection() === 'sync'}>
+              <div class="space-y-4">
+                <h3 class="text-xl font-bold">Enable Sync</h3>
+                <ol class="list-decimal space-y-2 pl-5 text-sm text-base-content/80">
+                  <li>Deploy a CouchDB instance reachable from the browser (HTTPS recommended).</li>
+                  <li>Configure CouchDB CORS to allow your frontend origin.</li>
+                  <li>Create a per-user database and user credentials in CouchDB.</li>
+                  <li>
+                    In Settings {'->'} Sync, enter the endpoint (example:
+                    <span class="font-semibold"> https://couch.example.com/dukunuu-db</span>),
+                    username, and password, then enable sync.
+                  </li>
+                </ol>
+                <div class="text-xs text-base-content/60">
+                  The endpoint should point directly to the user database.
+                </div>
+              </div>
+            </Show>
+            <Show when={helpSection() === 'ai'}>
+              <div class="space-y-4">
+                <h3 class="text-xl font-bold">Enable AI Features</h3>
+                <ol class="list-decimal space-y-2 pl-5 text-sm text-base-content/80">
+                  <li>Create an OpenRouter API key.</li>
+                  <li>In Settings {'->'} AI, enter the API key.</li>
+                  <li>Select a model if needed.</li>
+                </ol>
+                <div class="text-xs text-base-content/60">
+                  API keys are stored locally in your browser settings.
+                </div>
+              </div>
+            </Show>
+          </div>
+          <div class="modal-backdrop">
+            <button type="button" onClick={closeHelp}>
+              close
+            </button>
+          </div>
+        </div>
+      </Show>
     </div>
   );
 }

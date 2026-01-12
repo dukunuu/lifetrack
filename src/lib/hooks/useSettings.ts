@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onMount } from 'solid-js';
+import { createEffect, createRoot, createSignal } from 'solid-js';
 
 export interface AppSettings {
   sync: {
@@ -61,11 +61,12 @@ const mergeSettings = (base: AppSettings, overrides: Partial<AppSettings>): AppS
   };
 };
 
-export function useSettings() {
+const settingsStore = createRoot(() => {
   const [settings, setSettings] = createSignal<AppSettings>(DEFAULT_SETTINGS);
   const [loaded, setLoaded] = createSignal(false);
 
   const loadSettings = () => {
+    if (typeof window === 'undefined') return;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) return;
@@ -80,18 +81,17 @@ export function useSettings() {
     setSettings(DEFAULT_SETTINGS);
   };
 
-  onMount(() => {
-    loadSettings();
-    setLoaded(true);
-  });
+  loadSettings();
+  setLoaded(true);
 
   createEffect(() => {
-    if (!loaded()) return;
+    if (!loaded() || typeof window === 'undefined') return;
     const value = settings();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   });
 
   createEffect(() => {
+    if (typeof window === 'undefined') return;
     const value = settings();
     document.documentElement.setAttribute('data-theme', value.appearance.theme);
     document.documentElement.setAttribute(
@@ -105,4 +105,8 @@ export function useSettings() {
     setSettings,
     resetSettings,
   };
+});
+
+export function useSettings() {
+  return settingsStore;
 }

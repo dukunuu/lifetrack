@@ -88,7 +88,7 @@ export default function Home() {
                       >
                         <div class="bg-primary/5 group-hover:bg-primary/10 absolute top-0 right-0 h-28 w-28 rounded-full blur-2xl transition-colors"></div>
                         <div class="relative space-y-3 p-5">
-                          <div class="flex w-full items-center gap-3">
+                          <div class="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                             <div class="flex min-w-0 flex-1 items-center gap-3">
                               <div class="flex size-10 items-center justify-center rounded-xl">
                                 <Show
@@ -105,15 +105,17 @@ export default function Home() {
                                 </p>
                               </div>
                             </div>
-                            <span class="text-base-content/50 ml-auto shrink-0 text-xs tracking-wide uppercase">
+                            <span class="text-base-content/50 self-start text-xs tracking-wide uppercase sm:ml-auto sm:self-auto">
                               {item.goal.period}
                             </span>
                           </div>
 
                           <div>
-                            <div class="flex items-center justify-between text-sm">
-                              <span class="text-base-content/70">{item.progress.detailLabel}</span>
-                              <span class="text-base-content/80 font-semibold tabular-nums">
+                            <div class="grid gap-1 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                              <span class="text-base-content/70 truncate">
+                                {item.progress.detailLabel}
+                              </span>
+                              <span class="text-base-content/80 break-words font-semibold tabular-nums sm:text-right">
                                 {formatNumber(item.progress.current)} /{' '}
                                 {formatNumber(item.progress.target)}
                                 {item.goal.targetUnit ? ` ${item.goal.targetUnit}` : ''}
