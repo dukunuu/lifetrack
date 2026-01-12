@@ -8,6 +8,7 @@ export interface GoalSearchOptions {
   page?: number;
   perPage?: number;
   archived?: boolean;
+  period?: GoalPeriod;
 }
 
 export class GoalRepository extends BaseRepository<Goal> {
@@ -83,7 +84,10 @@ export class GoalRepository extends BaseRepository<Goal> {
     const archived = options.archived ?? false;
 
     const all = await this.findAll();
-    const filtered = all.filter((doc) => doc.archived === archived);
+    let filtered = all.filter((doc) => doc.archived === archived);
+    if (options.period) {
+      filtered = filtered.filter((doc) => doc.period === options.period);
+    }
 
     let results = filtered;
     if (query) {

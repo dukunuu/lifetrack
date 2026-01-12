@@ -1,4 +1,5 @@
-import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
+import { For, Show, createMemo, createResource } from 'solid-js';
+import { useSearchParams } from '@solidjs/router';
 import type { Group, PagedResult, Tracker } from '../../lib/db/types';
 import { Pin, Archive, Trash2, Edit, Tag, Search, Filter, X, Hash } from 'lucide-solid';
 import PaginationControls from '../common/PaginationControls';
@@ -18,10 +19,22 @@ interface TrackerListProps {
 const ITEMS_PER_PAGE = 10;
 
 export default function TrackerList(props: TrackerListProps) {
-  const [searchQuery, setSearchQuery] = createSignal('');
-  const [selectedGroupIds, setSelectedGroupIds] = createSignal<Set<string>>(new Set());
-  const [activePage, setActivePage] = createSignal(1);
-  const [archivedPage, setArchivedPage] = createSignal(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const parsePage = (value: unknown) => {
+    const page = Number(value);
+    return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  };
+
+  const parseGroupIds = (value: unknown) => {
+    if (typeof value !== 'string' || !value.trim()) return [];
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
+  };
+
+  const searchQuery = createMemo(() => (typeof searchParams.t_q === 'string' ? searchParams.t_q : ''));
+  const selectedGroupIds = createMemo(() => new Set(parseGroupIds(searchParams.t_groups)));
+  const activePage = createMemo(() => parsePage(searchParams.t_page));
+  const archivedPage = createMemo(() => parsePage(searchParams.t_archivedPage));
 
   const groupsMap = createMemo(() => {
     const map = new Map<string, Group>();
@@ -47,15 +60,19 @@ export default function TrackerList(props: TrackerListProps) {
     } else {
       current.add(groupId);
     }
-    setSelectedGroupIds(current);
-    setActivePage(1);
-    setArchivedPage(1);
+    setSearchParams({
+      t_groups: current.size > 0 ? Array.from(current).join(',') : undefined,
+      t_page: undefined,
+      t_archivedPage: undefined,
+    });
   };
 
   const clearGroupFilter = () => {
-    setSelectedGroupIds(new Set<string>());
-    setActivePage(1);
-    setArchivedPage(1);
+    setSearchParams({
+      t_groups: undefined,
+      t_page: undefined,
+      t_archivedPage: undefined,
+    });
   };
 
   const [activeSearchResults] = createResource(
@@ -118,9 +135,20 @@ export default function TrackerList(props: TrackerListProps) {
 
   // Reset page when search changes
   const handleSearch = (value: string) => {
-    setSearchQuery(value);
-    setActivePage(1);
-    setArchivedPage(1);
+    const trimmed = value.trim();
+    setSearchParams({
+      t_q: trimmed ? value : undefined,
+      t_page: undefined,
+      t_archivedPage: undefined,
+    });
+  };
+
+  const handleActivePageChange = (page: number) => {
+    setSearchParams({ t_page: page > 1 ? String(page) : undefined });
+  };
+
+  const handleArchivedPageChange = (page: number) => {
+    setSearchParams({ t_archivedPage: page > 1 ? String(page) : undefined });
   };
 
   return (
@@ -292,7 +320,7 @@ export default function TrackerList(props: TrackerListProps) {
             <PaginationControls
               currentPage={activePage()}
               totalPages={activeTotalPages()}
-              onPageChange={setActivePage}
+              onPageChange={handleActivePageChange}
             />
           </Show>
         </Show>
@@ -371,7 +399,7 @@ export default function TrackerList(props: TrackerListProps) {
             <PaginationControls
               currentPage={archivedPage()}
               totalPages={archivedTotalPages()}
-              onPageChange={setArchivedPage}
+              onPageChange={handleArchivedPageChange}
             />
           </Show>
         </div>

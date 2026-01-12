@@ -1,4 +1,5 @@
 import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
+import { useSearchParams } from '@solidjs/router';
 import type { Group, PagedResult } from '../../lib/db/types';
 import {
   FolderOpen,
@@ -27,10 +28,19 @@ interface GroupListProps {
 const ITEMS_PER_PAGE = 10;
 
 export default function GroupList(props: GroupListProps) {
-  const [searchQuery, setSearchQuery] = createSignal('');
-  const [activePage, setActivePage] = createSignal(1);
-  const [archivedPage, setArchivedPage] = createSignal(1);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [expandedGroups, setExpandedGroups] = createSignal<Set<string>>(new Set());
+
+  const parsePage = (value: unknown) => {
+    const page = Number(value);
+    return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  };
+
+  const searchQuery = createMemo(() =>
+    typeof searchParams.g_q === 'string' ? searchParams.g_q : '',
+  );
+  const activePage = createMemo(() => parsePage(searchParams.g_page));
+  const archivedPage = createMemo(() => parsePage(searchParams.g_archivedPage));
 
   const activeGroups = createMemo(() => {
     return props.groups.filter((g) => !g.archived);
@@ -112,9 +122,20 @@ export default function GroupList(props: GroupListProps) {
 
   // Reset page when search changes
   const handleSearch = (value: string) => {
-    setSearchQuery(value);
-    setActivePage(1);
-    setArchivedPage(1);
+    const trimmed = value.trim();
+    setSearchParams({
+      g_q: trimmed ? value : undefined,
+      g_page: undefined,
+      g_archivedPage: undefined,
+    });
+  };
+
+  const handleActivePageChange = (page: number) => {
+    setSearchParams({ g_page: page > 1 ? String(page) : undefined });
+  };
+
+  const handleArchivedPageChange = (page: number) => {
+    setSearchParams({ g_archivedPage: page > 1 ? String(page) : undefined });
   };
 
   // Toggle group expansion
@@ -434,7 +455,7 @@ export default function GroupList(props: GroupListProps) {
                 <PaginationControls
                   currentPage={activePage()}
                   totalPages={activeTotalPages()}
-                  onPageChange={setActivePage}
+                  onPageChange={handleActivePageChange}
                 />
               </Show>
             </div>
@@ -483,7 +504,7 @@ export default function GroupList(props: GroupListProps) {
                 <PaginationControls
                   currentPage={archivedPage()}
                   totalPages={archivedTotalPages()}
-                  onPageChange={setArchivedPage}
+                  onPageChange={handleArchivedPageChange}
                 />
               </Show>
             </div>

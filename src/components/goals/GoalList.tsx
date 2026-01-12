@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
-import type { Entry, Goal, Group, PagedResult, Tracker } from '../../lib/db/types';
+import { useSearchParams } from '@solidjs/router';
+import type { Entry, Goal, GoalPeriod, Group, PagedResult, Tracker } from '../../lib/db/types';
 import { X } from 'lucide-solid';
 import { computeGoalProgress } from '../../lib/services/goal-progress';
 import SearchInput from '../common/SearchInput';
@@ -20,13 +21,35 @@ interface GoalListProps {
 }
 
 export default function GoalList(props: GoalListProps) {
-  const [searchQuery, setSearchQuery] = createSignal('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedGoal, setSelectedGoal] = createSignal<Goal | null>(null);
+
+  const searchQuery = createMemo(() => (typeof searchParams.q === 'string' ? searchParams.q : ''));
+  const allowedPeriods = ['daily', 'weekly', 'monthly'] as const;
+
+  const periodFilter = createMemo<GoalPeriod | undefined>(() => {
+    const period = searchParams.period;
+    if (typeof period !== 'string') return undefined;
+    return allowedPeriods.includes(period as (typeof allowedPeriods)[number])
+      ? (period as GoalPeriod)
+      : undefined;
+  });
+  const hasFilters = createMemo(() => Boolean(searchQuery().trim() || periodFilter()));
+
+  const handleSearch = (value: string) => {
+    const trimmed = value.trim();
+    setSearchParams({ q: trimmed ? value : undefined });
+  };
+
+  const handlePeriodToggle = (period: 'daily' | 'weekly' | 'monthly') => {
+    setSearchParams({ period: periodFilter() === period ? undefined : period });
+  };
 
   const [activeSearchResults] = createResource(
     () => ({
       query: searchQuery(),
       archived: false,
+      period: periodFilter(),
       perPage: 0,
       revision: props.goals,
     }),
@@ -34,6 +57,7 @@ export default function GoalList(props: GoalListProps) {
       props.searchGoals({
         query: source.query,
         archived: source.archived,
+        period: source.period,
         perPage: source.perPage,
       }),
     {
@@ -45,6 +69,7 @@ export default function GoalList(props: GoalListProps) {
     () => ({
       query: searchQuery(),
       archived: true,
+      period: periodFilter(),
       perPage: 0,
       revision: props.goals,
     }),
@@ -52,6 +77,7 @@ export default function GoalList(props: GoalListProps) {
       props.searchGoals({
         query: source.query,
         archived: source.archived,
+        period: source.period,
         perPage: source.perPage,
       }),
     {
@@ -102,12 +128,66 @@ export default function GoalList(props: GoalListProps) {
 
   return (
     <div class="space-y-6">
-      <SearchInput value={searchQuery()} onInput={setSearchQuery} placeholder="Search goals..." />
+      <div class="space-y-3">
+        <SearchInput
+          value={searchQuery()}
+          onInput={handleSearch}
+          placeholder="Search goals..."
+        />
+
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="text-base-content/60 text-sm font-medium uppercase tracking-wide">
+            Period
+          </div>
+          <button
+            type="button"
+            class={`badge badge-lg transition-all ${
+              !periodFilter() ? 'badge-primary' : 'bg-base-content/10 hover:bg-base-content/20'
+            }`}
+            onClick={() => setSearchParams({ period: undefined })}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            class={`badge badge-lg transition-all ${
+              periodFilter() === 'daily'
+                ? 'badge-primary'
+                : 'bg-base-content/10 hover:bg-base-content/20'
+            }`}
+            onClick={() => handlePeriodToggle('daily')}
+          >
+            Daily
+          </button>
+          <button
+            type="button"
+            class={`badge badge-lg transition-all ${
+              periodFilter() === 'weekly'
+                ? 'badge-primary'
+                : 'bg-base-content/10 hover:bg-base-content/20'
+            }`}
+            onClick={() => handlePeriodToggle('weekly')}
+          >
+            Weekly
+          </button>
+          <button
+            type="button"
+            class={`badge badge-lg transition-all ${
+              periodFilter() === 'monthly'
+                ? 'badge-primary'
+                : 'bg-base-content/10 hover:bg-base-content/20'
+            }`}
+            onClick={() => handlePeriodToggle('monthly')}
+          >
+            Monthly
+          </button>
+        </div>
+      </div>
 
       <div>
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-xl font-bold">Active Goals</h3>
-          <Show when={searchQuery()}>
+          <Show when={hasFilters()}>
             <span class="text-base-content/60 text-sm tabular-nums">
               {activeResultTotal()} result{activeResultTotal() !== 1 ? 's' : ''}
             </span>
@@ -118,10 +198,12 @@ export default function GoalList(props: GoalListProps) {
           fallback={
             <div class="text-base-content/50 py-8 text-center">
               <Show
-                when={searchQuery()}
+                when={hasFilters()}
                 fallback={<>No goals yet. Create your first goal below.</>}
               >
-                No goals match "{searchQuery()}"
+                <Show when={searchQuery().trim()} fallback={<>No goals match the selected period.</>}>
+                  No goals match "{searchQuery()}"
+                </Show>
               </Show>
             </div>
           }
@@ -150,7 +232,7 @@ export default function GoalList(props: GoalListProps) {
         <div>
           <div class="mb-4 flex items-center justify-between">
             <h3 class="text-xl font-bold">Archived Goals</h3>
-            <Show when={searchQuery()}>
+            <Show when={hasFilters()}>
               <span class="text-base-content/60 text-sm tabular-nums">
                 {archivedResultTotal()} result{archivedResultTotal() !== 1 ? 's' : ''}
               </span>

@@ -10,6 +10,7 @@ const THEMES = [
   { id: 'graphite', label: 'Graphite' },
   { id: 'linen', label: 'Linen (light)' },
   { id: 'cyberpunk', label: 'Cyberpunk' },
+  { id: 'gothic', label: 'Gothic' },
 ];
 
 export default function Settings() {
