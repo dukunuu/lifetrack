@@ -109,13 +109,4 @@ export abstract class BaseRepository<T extends BaseDocument> implements Reposito
     return () => changes.cancel();
   }
 
-  protected async findByField(field: keyof T, value: any): Promise<T[]> {
-    const all = await this.findAll();
-    return all.filter((doc) => doc[field] === value);
-  }
-
-  protected async findOne(predicate: (doc: T) => boolean): Promise<T | null> {
-    const all = await this.findAll();
-    return all.find(predicate) || null;
-  }
 }

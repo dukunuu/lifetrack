@@ -1,8 +1,9 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
-import { Activity, CheckCircle2, Hash, XCircle } from 'lucide-solid';
+import { Activity, CheckCircle2, XCircle } from 'lucide-solid';
 import { useGroups } from '../../lib/hooks/useGroups';
 import { useSession } from '../../lib/hooks/useSession';
 import type { Group } from '../../lib/db/types';
+import GlobalInput from '../common/GlobalInput';
 
 const formatDuration = (totalSeconds: number) => {
   const hours = Math.floor(totalSeconds / 3600);
@@ -72,7 +73,7 @@ export default function ActiveSession() {
 
   return (
     <div
-      class="border-base-300/70 bg-base-200/70 mb-8 rounded-2xl border p-6 shadow-md"
+      class="border-base-300/70 bg-base-200/70 mb-8 rounded-2xl border sm:p-6 p-3 shadow-md"
       style={{
         'border-left': activeGroupColor() ? `2px solid ${activeGroupColor()}` : undefined,
       }}
@@ -138,8 +139,8 @@ export default function ActiveSession() {
       >
         {(session) => (
           <div class="border-base-300/70 bg-base-100/60 rounded-xl border p-4 space-y-4">
-            <div class="bg-base-100/50 border-base-300/50 flex flex-wrap items-center justify-between gap-4 rounded-xl border px-4 py-3">
-              <div class="flex items-center gap-3">
+            <div class="bg-base-100/50 border-base-300/50 flex flex-col sm:flex-row w-full items-center justify-between gap-4 rounded-xl border px-4 py-3">
+              <div class="flex w-full flex-2 items-center gap-3">
                 <div
                   class="bg-base-200 flex size-12 items-center justify-center rounded-2xl"
                   style={{
@@ -160,12 +161,10 @@ export default function ActiveSession() {
                   </div>
                 </div>
               </div>
-              <div class="flex flex-wrap items-center gap-4 text-right text-xs">
-                <div>
+                <div class="flex sm:justify-end w-full justify-between flex-1 gap-y-4 sm:text-right text-xs items-center flex-row gap-x-3">
                   <div class="text-base-content/50 uppercase tracking-wide">Duration</div>
                   <div class="text-base-content text-lg font-semibold tabular-nums">
                     {durationLabel()}
-                  </div>
                 </div>
                 <Show when={session.summary?.entryCount !== undefined}>
                   <div>
@@ -178,19 +177,19 @@ export default function ActiveSession() {
               </div>
             </div>
 
-            <label class="form-control gap-2">
-              <span class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+            <label class="form-control flex flex-col sm:items-start justify-start gap-2">
+              <span class="text-base-content/60 pl-2 text-xs font-semibold tracking-wide uppercase">
                 Notes
               </span>
-              <input
-                class="input input-bordered bg-base-100/60 border-base-300/60"
+              <GlobalInput
+                class="bg-base-100/60 border-base-300/60"
                 value={notes()}
                 onInput={(e) => setNotes(e.currentTarget.value)}
                 placeholder="Optional session notes..."
               />
             </label>
 
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center sm:justify-end justify-between gap-3">
               <button type="button" class="btn btn-primary gap-2" onClick={handleComplete}>
                 <CheckCircle2 class="size-4" />
                 Complete
@@ -199,10 +198,6 @@ export default function ActiveSession() {
                 <XCircle class="size-4" />
                 Abandon
               </button>
-              <div class="text-base-content/50 flex items-center gap-2 text-xs">
-                <Hash class="size-3" />
-                Add with #tags while this session is active.
-              </div>
               <Show when={error()}>
                 <span class="text-error text-sm">{error()?.message}</span>
               </Show>

@@ -124,7 +124,7 @@ const Layout: ParentComponent = (props) => {
       </div>
 
       {/* Sidebar */}
-      <div class="drawer-side is-drawer-close:overflow-visible">
+      <div class="drawer-side z-[999] is-drawer-close:overflow-visible">
         <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
 
         <div class="bg-base-300 border-base-content/10 is-drawer-close:w-16 is-drawer-open:w-64 transition-cinematic flex min-h-full flex-col border-r transition-[width] duration-300">

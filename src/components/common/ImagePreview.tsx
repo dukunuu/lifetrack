@@ -4,6 +4,9 @@ import { Portal } from 'solid-js/web';
 
 type ImagePreviewProps = {
   src: string;
+  fullSrc?: string;
+  onRequestFull?: () => Promise<string>;
+  onFullSrcCleanup?: (src: string) => void;
   alt?: string;
   class?: string;
   classList?: Record<string, boolean>;
@@ -15,6 +18,8 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 export default function ImagePreview(props: ImagePreviewProps) {
   const [isOpen, setIsOpen] = createSignal(false);
+  const [resolvedFullSrc, setResolvedFullSrc] = createSignal<string | null>(null);
+  const [isLoadingFull, setIsLoadingFull] = createSignal(false);
   const [scale, setScale] = createSignal(1);
   const [offsetX, setOffsetX] = createSignal(0);
   const [offsetY, setOffsetY] = createSignal(0);
@@ -40,6 +45,15 @@ export default function ImagePreview(props: ImagePreviewProps) {
     setIsDragging(false);
   };
 
+  const cleanupFullSrc = () => {
+    const current = resolvedFullSrc();
+    if (current && props.onFullSrcCleanup) {
+      props.onFullSrcCleanup(current);
+    }
+    setResolvedFullSrc(null);
+    setIsLoadingFull(false);
+  };
+
   createEffect(() => {
     if (!isOpen()) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -51,6 +65,37 @@ export default function ImagePreview(props: ImagePreviewProps) {
     window.addEventListener('keydown', handleKeyDown);
     onCleanup(() => window.removeEventListener('keydown', handleKeyDown));
   });
+
+  createEffect(() => {
+    if (!isOpen()) {
+      cleanupFullSrc();
+      return;
+    }
+
+    if (props.fullSrc) {
+      setResolvedFullSrc(props.fullSrc);
+      return;
+    }
+
+    if (!props.onRequestFull || resolvedFullSrc()) return;
+
+    let cancelled = false;
+    setIsLoadingFull(true);
+    props
+      .onRequestFull()
+      .then((src) => {
+        if (!cancelled) setResolvedFullSrc(src);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingFull(false);
+      });
+
+    onCleanup(() => {
+      cancelled = true;
+    });
+  });
+
+  onCleanup(() => cleanupFullSrc());
 
   const handleWheel = (event: WheelEvent) => {
     event.preventDefault();
@@ -125,11 +170,12 @@ export default function ImagePreview(props: ImagePreviewProps) {
 
             <div class="max-h-[90vh] max-w-[90vw] overflow-hidden">
               <img
-                src={props.src}
+                src={resolvedFullSrc() ?? props.src}
                 alt={props.alt ?? 'Image preview'}
                 classList={{
                   'cursor-grab': !isDragging(),
                   'cursor-grabbing': isDragging(),
+                  'opacity-60': isLoadingFull(),
                 }}
                 style={{
                   transform: `translate(${offsetX()}px, ${offsetY()}px) scale(${scale()})`,

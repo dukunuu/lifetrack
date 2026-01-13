@@ -1,5 +1,5 @@
 import { createSignal, Show, For, onMount, onCleanup, createMemo } from 'solid-js';
-import type { Tracker, Group, FieldDefinition } from '../../lib/db/types';
+import type { Tracker, FieldDefinition } from '../../lib/db/types';
 import JsonEditor from '../common/JsonEditor';
 import FieldBuilder from './FieldBuilder';
 import FormHeader from '../common/FormHeader';
@@ -8,12 +8,12 @@ import FormErrorAlert from '../common/FormErrorAlert';
 import { trackerSchema } from '../../lib/schemas/tracker.schema';
 import { Sparkles } from 'lucide-solid';
 import { useAiJsonCompletion } from '../../lib/hooks/useAiJsonCompletion';
+import { useGroups } from '../../lib/hooks/useGroups';
 
 interface TrackerFormProps {
-  groups: Group[];
   onSubmit: (data: Omit<Tracker, '_id' | '_rev' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   onCancel?: () => void;
-  initialData?: Tracker;
+  initialData?: Tracker | null;
 }
 
 const defaultFields: FieldDefinition[] = [
@@ -27,6 +27,7 @@ const defaultFields: FieldDefinition[] = [
 ];
 
 export default function TrackerFormV2(props: TrackerFormProps) {
+  const { groups } = useGroups({ load: 'trackers' });
   const [mode, setMode] = createSignal<'form' | 'json'>('form');
 
   // Form mode state
@@ -66,15 +67,15 @@ export default function TrackerFormV2(props: TrackerFormProps) {
   const [validationErrors, setValidationErrors] = createSignal<Record<string, string>>({});
 
   const aiGroups = createMemo(() =>
-    props.groups.filter((group) => group.allowsTrackers).map((group) => ({
+    groups().map((group) => ({
       id: group._id,
       name: group.name,
       path: group.path,
     })),
   );
-  const selectableGroups = createMemo(() => props.groups.filter((group) => group.allowsTrackers));
+
   const additionalGroupOptions = createMemo(() =>
-    selectableGroups().filter((group) => group._id !== groupId()),
+    groups().filter((group) => group._id !== groupId()),
   );
   const aiContextLines = createMemo(() => {
     const groupLines =
@@ -244,6 +245,36 @@ export default function TrackerFormV2(props: TrackerFormProps) {
       }
     }
   };
+  const handleModeChange = (newMode: 'form' | 'json') => {
+    if (newMode === 'json') {
+      const data = {
+        label: label(),
+        tag: tag(),
+        groupId: groupId(),
+        additionalGroupIds: additionalGroupIds(),
+        fields: fields(),
+        aliases: aliases().split(',').map((a) => a.trim()).filter(Boolean),
+        pinned: pinned(),
+        sortOrder: props.initialData?.sortOrder || 0,
+        archived: props.initialData?.archived || false,
+      };
+      setJsonValue(JSON.stringify(data, null, 2));
+    } else {
+      try {
+        const data = JSON.parse(jsonValue());
+        setLabel(data.label || '');
+        setTag(data.tag || '');
+        setGroupId(data.groupId || '');
+        setAdditionalGroupIds(data.additionalGroupIds || []);
+        setFields(data.fields || defaultFields);
+        setAliases(Array.isArray(data.aliases) ? data.aliases.join(', ') : '');
+        setPinned(!!data.pinned);
+      } catch (e) {
+        // If JSON is invalid, we don't sync back to prevent form corruption
+      }
+    }
+    setMode(newMode);
+  };
 
   return (
     <div class="flex h-full flex-col">
@@ -255,7 +286,7 @@ export default function TrackerFormV2(props: TrackerFormProps) {
             : 'Advanced JSON editing mode'
         }
         mode={mode()}
-        onModeChange={setMode}
+        onModeChange={handleModeChange}
         onCancel={props.onCancel}
         containerClass="bg-linear-to-br from-base-200 to-base-300"
         titleClass="bg-linear-to-r from-primary to-secondary"
@@ -355,10 +386,10 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                     <option value="" disabled>
                       Select a group
                     </option>
-                    <For each={selectableGroups()}>
+                    <For each={groups().sort((a, b) => a.path.localeCompare(b.path))}>
                       {(group) => (
                         <option value={group._id}>
-                          {'  '.repeat(group.depth)}
+                          {'\u00A0'.repeat(group.depth * 2)}
                           {group.name}
                         </option>
                       )}
@@ -412,7 +443,7 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                               }}
                             />
                             <span class="text-sm">
-                              {'  '.repeat(group.depth)}
+                              {'\u00A0'.repeat(group.depth * 2)}
                               {group.name}
                             </span>
                           </label>

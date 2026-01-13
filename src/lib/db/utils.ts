@@ -48,6 +48,7 @@ export const generateId = {
   entry: (): string => `entry:${timestamp()}:${generateRandomString()}`,
   session: (): string => `session:${timestamp()}:${generateRandomString()}`,
   goal: (): string => `goal:${generateUUID()}`,
+  media: (): string => `media:${generateUUID()}`,
 };
 
 export function slugify(text: string): string {
@@ -59,7 +60,39 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export function buildPath(parentPath: string | null, slug: string): string {
+export function buildSearchTokens(...values: Array<string | undefined>): string[] {
+  const tokens = new Set<string>();
+  const maxPrefix = 4;
+
+  values
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .forEach((value) => {
+      value
+        .toLowerCase()
+        .split(/[^a-z0-9]+/g)
+        .filter(Boolean)
+        .forEach((word) => {
+          const limit = Math.min(maxPrefix, word.length);
+          for (let i = 1; i <= limit; i += 1) {
+            tokens.add(word.slice(0, i));
+          }
+          if (word.length >= 2) {
+            for (let i = 0; i <= word.length - 2; i += 1) {
+              tokens.add(word.slice(i, i + 2));
+            }
+          }
+          if (word.length >= 3) {
+            for (let i = 0; i <= word.length - 3; i += 1) {
+              tokens.add(word.slice(i, i + 3));
+            }
+          }
+        });
+    });
+
+  return Array.from(tokens);
+}
+
+export function buildPath(parentPath: string | null | undefined, slug: string): string {
   if (!parentPath) return slug;
   return `${parentPath}/${slug}`;
 }

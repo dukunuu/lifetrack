@@ -6,8 +6,8 @@ import { useTrackers } from '../../lib/hooks/useTrackers';
 import { useQuickAdd } from '../../lib/hooks/useQuickAdd';
 import { useSession } from '../../lib/hooks/useSession';
 import { useSettings } from '../../lib/hooks/useSettings';
-import { readFileAsDataUrl } from '../../lib/services/image-service';
 import ImagePreview from '../common/ImagePreview';
+import GlobalInput from '../common/GlobalInput';
 
 const tokenizer = new Tokenizer();
 
@@ -36,8 +36,9 @@ export default function QuickAdd(props: QuickAddProps) {
   } = useQuickAdd();
 
   const { groups } = useGroups();
-  const { trackers } = useTrackers();
+  const { trackers } = useTrackers({ loadAll: true });
   const { activeSession } = useSession();
+  const [attachmentPreview, setAttachmentPreview] = createSignal<string | null>(null);
   const { settings } = useSettings();
   const [sessionNow, setSessionNow] = createSignal(Date.now());
   const groupMap = createMemo(() => {
@@ -219,8 +220,7 @@ export default function QuickAdd(props: QuickAddProps) {
     const inputEl = e.currentTarget as HTMLInputElement;
     const file = inputEl.files?.[0];
     if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    setAttachment(dataUrl);
+    setAttachment(file);
     inputEl.value = '';
   };
 
@@ -237,17 +237,36 @@ export default function QuickAdd(props: QuickAddProps) {
     if (!file) return;
 
     e.preventDefault();
-    const dataUrl = await readFileAsDataUrl(file);
-    setAttachment(dataUrl);
+    setAttachment(file);
   };
+
+  createEffect(() => {
+    const file = attachment();
+    if (!file) {
+      const current = attachmentPreview();
+      if (current) URL.revokeObjectURL(current);
+      setAttachmentPreview(null);
+      return;
+    }
+
+    const nextUrl = URL.createObjectURL(file);
+    const current = attachmentPreview();
+    if (current) URL.revokeObjectURL(current);
+    setAttachmentPreview(nextUrl);
+  });
+
+  onCleanup(() => {
+    const current = attachmentPreview();
+    if (current) URL.revokeObjectURL(current);
+  });
 
   return (
     <div
-      class="bg-base-200 border-primary/10 relative rounded-2xl border shadow-2xl"
+      class="bg-base-200 border-primary/10 relative rounded-2xl border shadow-2x"
       classList={{ 'mb-8': !props.fixed }}
     >
 
-      <div class="relative p-6">
+      <div class="relative sm:p-6 p-3">
         <div class="mb-4 flex items-center gap-2">
           <Zap class="text-primary size-5" />
           <h2 class="text-lg font-bold">Quick Add</h2>
@@ -302,15 +321,15 @@ export default function QuickAdd(props: QuickAddProps) {
         <form onSubmit={handleSubmit}>
           <div class="form-control">
             <div class="relative">
-              <input
+              <GlobalInput 
                 ref={inputRef}
                 type="text"
                 value={input()}
                 onInput={(e) => setInput(e.currentTarget.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                placeholder="Type a command... e.g., #coffee #workout 30min"
-                class="input input-bordered bg-base-100/50 border-base-300/50 focus:border-primary/50 w-full transition-colors"
+                placeholder="Type a command..."
+                class="bg-base-100/50 border-base-300/50 pr-8 focus:border-primary/50 w-full transition-colors"
                 disabled={loading()}
               />
               <label class="btn btn-ghost btn-sm btn-square absolute right-1 top-1">
@@ -510,16 +529,20 @@ export default function QuickAdd(props: QuickAddProps) {
             </div>
           </div>
 
-          <Show when={attachment()}>
+          <Show when={attachmentPreview()}>
             <div class="border-base-300/60 bg-base-200/60 mt-3 flex items-center gap-3 rounded-xl border px-3 py-2">
               <div class="relative h-14 w-14 overflow-hidden rounded-lg border border-base-300/60">
-                <ImagePreview src={attachment()} alt="Attachment" class="h-full w-full object-cover" />
+                <ImagePreview
+                  src={attachmentPreview()!}
+                  alt="Attachment"
+                  class="h-full w-full object-cover"
+                />
               </div>
               <div class="text-base-content/70 text-xs">Image attached</div>
               <button
                 type="button"
                 class="btn btn-ghost btn-xs ml-auto"
-                onClick={() => setAttachment('')}
+                onClick={() => setAttachment(null)}
                 aria-label="Remove attachment"
               >
                 <X class="size-3" />

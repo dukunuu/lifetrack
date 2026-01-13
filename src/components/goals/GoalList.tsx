@@ -4,9 +4,12 @@ import type { Entry, Goal, GoalPeriod, Group, PagedResult, Tracker } from '../..
 import { X } from 'lucide-solid';
 import { computeGoalProgress } from '../../lib/services/goal-progress';
 import SearchInput from '../common/SearchInput';
+import PaginationControls from '../common/PaginationControls';
 import type { GoalSearchOptions } from '../../lib/repositories';
 import GoalCard from './GoalCard';
 import EntryCard from '../entries/EntryCard';
+import { useSearchCursorPagination } from '../../lib/hooks/useSearchPagination';
+import { ITEMS_PER_PAGE } from '../../lib/constants/pagination';
 
 interface GoalListProps {
   goals: Goal[];
@@ -23,8 +26,26 @@ interface GoalListProps {
 export default function GoalList(props: GoalListProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedGoal, setSelectedGoal] = createSignal<Goal | null>(null);
-
-  const searchQuery = createMemo(() => (typeof searchParams.q === 'string' ? searchParams.q : ''));
+  const {
+    searchQuery,
+    activeCursor,
+    archivedCursor,
+    activeCursorStack,
+    archivedCursorStack,
+    handleSearch,
+    handleActiveNext,
+    handleActivePrev,
+    handleArchivedNext,
+    handleArchivedPrev,
+    resetCursors,
+    watchEmptyPages,
+  } = useSearchCursorPagination({
+    queryKey: 'q',
+    cursorKey: 'goal_cursor',
+    cursorStackKey: 'goal_cursorStack',
+    archivedCursorKey: 'goal_archivedCursor',
+    archivedCursorStackKey: 'goal_archivedCursorStack',
+  });
   const allowedPeriods = ['daily', 'weekly', 'monthly'] as const;
 
   const periodFilter = createMemo<GoalPeriod | undefined>(() => {
@@ -36,57 +57,72 @@ export default function GoalList(props: GoalListProps) {
   });
   const hasFilters = createMemo(() => Boolean(searchQuery().trim() || periodFilter()));
 
-  const handleSearch = (value: string) => {
-    const trimmed = value.trim();
-    setSearchParams({ q: trimmed ? value : undefined });
-  };
-
   const handlePeriodToggle = (period: 'daily' | 'weekly' | 'monthly') => {
     setSearchParams({ period: periodFilter() === period ? undefined : period });
+    resetCursors();
   };
 
   const [activeSearchResults] = createResource(
     () => ({
       query: searchQuery(),
+      cursor: activeCursor(),
       archived: false,
       period: periodFilter(),
-      perPage: 0,
+      perPage: ITEMS_PER_PAGE,
       revision: props.goals,
     }),
     (source) =>
       props.searchGoals({
         query: source.query,
+        cursor: source.cursor,
         archived: source.archived,
         period: source.period,
         perPage: source.perPage,
       }),
     {
-      initialValue: { items: [], total: 0, page: 1, perPage: 0 },
+      initialValue: { items: [], perPage: ITEMS_PER_PAGE },
     },
   );
 
   const [archivedSearchResults] = createResource(
     () => ({
       query: searchQuery(),
+      cursor: archivedCursor(),
       archived: true,
       period: periodFilter(),
-      perPage: 0,
+      perPage: ITEMS_PER_PAGE,
       revision: props.goals,
     }),
     (source) =>
       props.searchGoals({
         query: source.query,
+        cursor: source.cursor,
         archived: source.archived,
         period: source.period,
         perPage: source.perPage,
       }),
     {
-      initialValue: { items: [], total: 0, page: 1, perPage: 0 },
+      initialValue: { items: [], perPage: ITEMS_PER_PAGE },
     },
   );
 
-  const activeResultTotal = createMemo(() => activeSearchResults().total);
-  const archivedResultTotal = createMemo(() => archivedSearchResults().total);
+  const activeResultTotal = createMemo(
+    () => activeSearchResults().total ?? activeSearchResults().items.length,
+  );
+  const archivedResultTotal = createMemo(
+    () => archivedSearchResults().total ?? archivedSearchResults().items.length,
+  );
+  const activeHasTotal = createMemo(() => activeSearchResults().total !== undefined);
+  const archivedHasTotal = createMemo(() => archivedSearchResults().total !== undefined);
+  const activeHasPrev = createMemo(() => activeCursorStack().length > 0);
+  const archivedHasPrev = createMemo(() => archivedCursorStack().length > 0);
+  const activeHasNext = createMemo(() => Boolean(activeSearchResults().nextCursor));
+  const archivedHasNext = createMemo(() => Boolean(archivedSearchResults().nextCursor));
+
+  watchEmptyPages(
+    () => activeSearchResults().items.length,
+    () => archivedSearchResults().items.length,
+  );
 
   const progressMap = createMemo(() => {
     const map = new Map<string, ReturnType<typeof computeGoalProgress>>();
@@ -144,7 +180,10 @@ export default function GoalList(props: GoalListProps) {
             class={`badge badge-lg transition-all ${
               !periodFilter() ? 'badge-primary' : 'bg-base-content/10 hover:bg-base-content/20'
             }`}
-            onClick={() => setSearchParams({ period: undefined })}
+            onClick={() => {
+              setSearchParams({ period: undefined });
+              resetCursors();
+            }}
           >
             All
           </button>
@@ -189,7 +228,12 @@ export default function GoalList(props: GoalListProps) {
           <h3 class="text-xl font-bold">Active Goals</h3>
           <Show when={hasFilters()}>
             <span class="text-base-content/60 text-sm tabular-nums">
-              {activeResultTotal()} result{activeResultTotal() !== 1 ? 's' : ''}
+              <Show
+                when={activeHasTotal()}
+                fallback={<>Showing {activeSearchResults().items.length}</>}
+              >
+                {activeResultTotal()} result{activeResultTotal() !== 1 ? 's' : ''}
+              </Show>
             </span>
           </Show>
         </div>
@@ -225,6 +269,12 @@ export default function GoalList(props: GoalListProps) {
               )}
             </For>
           </div>
+          <PaginationControls
+            hasPrev={activeHasPrev()}
+            hasNext={activeHasNext()}
+            onPrev={handleActivePrev}
+            onNext={() => handleActiveNext(activeSearchResults().nextCursor)}
+          />
         </Show>
       </div>
 
@@ -234,7 +284,12 @@ export default function GoalList(props: GoalListProps) {
             <h3 class="text-xl font-bold">Archived Goals</h3>
             <Show when={hasFilters()}>
               <span class="text-base-content/60 text-sm tabular-nums">
-                {archivedResultTotal()} result{archivedResultTotal() !== 1 ? 's' : ''}
+                <Show
+                  when={archivedHasTotal()}
+                  fallback={<>Showing {archivedSearchResults().items.length}</>}
+                >
+                  {archivedResultTotal()} result{archivedResultTotal() !== 1 ? 's' : ''}
+                </Show>
               </span>
             </Show>
           </div>
@@ -255,6 +310,12 @@ export default function GoalList(props: GoalListProps) {
               )}
             </For>
           </div>
+          <PaginationControls
+            hasPrev={archivedHasPrev()}
+            hasNext={archivedHasNext()}
+            onPrev={handleArchivedPrev}
+            onNext={() => handleArchivedNext(archivedSearchResults().nextCursor)}
+          />
         </div>
       </Show>
 

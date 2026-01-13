@@ -7,6 +7,7 @@ import ImagePreview from '../components/common/ImagePreview';
 import { useSettings } from '../lib/hooks/useSettings';
 import { OPENROUTER_IMAGE_MODELS, OPENROUTER_MODELS } from '../lib/constants/ai-models';
 import { readFileAsDataUrl, supportsImageModel } from '../lib/services/image-service';
+import GlobalInput from '../components/common/GlobalInput';
 
 const formatTime = (value: string) => {
   const date = new Date(value);
@@ -133,7 +134,7 @@ export default function SessionRoute() {
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 class="text-2xl font-bold">{session()?.name || 'AI Chat'}</h1>
-            <p class="text-base-content/60 text-sm">
+            <p class="text-base-content/60 text-sm hidden sm:block">
               Conversation session with the AI assistant.
             </p>
           </div>
@@ -252,8 +253,8 @@ export default function SessionRoute() {
                   </div>
                 }
               >
-                <div ref={chatScrollRef} class="flex-1 min-h-0 overflow-y-auto pr-2">
-                  <div class="flex flex-col gap-3 pb-2">
+                <div ref={chatScrollRef} class="flex-1 max-h-[calc(100dvh-24rem)] overflow-y-auto overflow-x-hidden pr-2">
+                  <div class="flex flex-col gap-3 pb-2 ">
                     <For each={displayedMessages()}>
                       {(msg) => {
                         const isUser = msg.role === 'user';
@@ -271,7 +272,7 @@ export default function SessionRoute() {
                                 <span>{formatTime(msg.createdAt)}</span>
                               </div>
                               <Show when={msg.content}>
-                                <div class="mt-2 text-base-content">
+                                <div class="mt-2 text-base-content wrap-break-word">
                                   <Markdown content={msg.content} />
                                 </div>
                               </Show>
@@ -296,7 +297,7 @@ export default function SessionRoute() {
 
             <form onSubmit={handleSend} class="border-base-300/50 border-t pt-4">
               <div class="flex flex-wrap items-center gap-3">
-                <div class="bg-base-200/60 text-base-content/60 flex items-center gap-2 rounded-full px-3 py-1 text-xs">
+                <div class="bg-base-200/60 hidden sm:flex text-base-content/60 items-center gap-2 rounded-full px-3 py-1 text-xs">
                   <Bot class="size-3" />
                   /chat session
                 </div>
@@ -332,16 +333,19 @@ export default function SessionRoute() {
               </Show>
               <div class="mt-3 flex flex-col gap-2">
                 <div class="flex items-center gap-2">
-                <input
-                  class="input input-bordered w-full flex-1 py-3"
+                <GlobalInput
+                  class="w-full flex-1 py-3"
                   value={message()}
                   onInput={(e) => setMessage(e.currentTarget.value)}
                   onPaste={handlePaste}
+                  maxlength={2000}
+                  placeholderMaxLength={25}
                   placeholder={
                     imageMode()
                       ? 'Describe the image you want to generate...'
                       : 'Ask anything about your trackers, goals, or habits...'
                   }
+                  mode='textarea'
                   disabled={sending() || isClosed()}
                 />
                   <button

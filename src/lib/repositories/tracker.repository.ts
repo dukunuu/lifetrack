@@ -1,15 +1,62 @@
 import { BaseRepository } from './base.repository';
-import { generateId, slugify } from '../db/utils';
+import { db } from '../db';
+import { buildSearchTokens, generateId, slugify } from '../db/utils';
 import type { PagedResult, Tracker } from '../db/types';
-import Fuse, { type FuseResultMatch } from 'fuse.js';
 
 export interface TrackerSearchOptions {
   query?: string;
-  page?: number;
+  cursor?: string;
   perPage?: number;
   archived?: boolean;
   groupIds?: string[];
 }
+
+const TRACKER_PREFIX = 'tracker:';
+const TRACKER_END = `${TRACKER_PREFIX}\ufff0`;
+const TRACKER_SEARCH_FIELDS = {
+  trackerSearchTokens: 1,
+};
+const TRACKER_SEARCH_MM = '50%';
+
+type QuickSearchRow = { id: string; doc?: Tracker; score?: number };
+type QuickSearchResponse = { rows: QuickSearchRow[]; total_rows?: number };
+
+const trackerDb = db as PouchDB.Database<Tracker>;
+
+let trackerIndexReady: Promise<void> | null = null;
+let trackerTokensReady: Promise<void> | null = null;
+
+const ensureTrackerIndex = async () => {
+  if (!trackerIndexReady) {
+    trackerIndexReady = Promise.all([
+      db.createIndex({
+        index: {
+          fields: ['_id', 'archived', 'groupId', 'additionalGroupIds'],
+          name: 'trackers-by-meta',
+        },
+      }),
+      db.createIndex({
+        index: {
+          fields: ['_id', 'tag'],
+          name: 'trackers-by-tag',
+        },
+      }),
+      db.createIndex({
+        index: {
+          fields: ['_id', 'aliases'],
+          name: 'trackers-by-alias',
+        },
+      }),
+      db.createIndex({
+        index: {
+          fields: ['_id', 'pinned', 'archived'],
+          name: 'trackers-by-pinned',
+        },
+      }),
+    ]).then(() => undefined);
+  }
+  return trackerIndexReady;
+};
 
 export class TrackerRepository extends BaseRepository<Tracker> {
   protected prefix = 'tracker';
@@ -26,128 +73,107 @@ export class TrackerRepository extends BaseRepository<Tracker> {
       ...data,
       _id: generateId.tracker(),
       tag,
+      trackerSearchTokens: buildSearchTokens(data.label, tag, ...(data.aliases ?? [])),
     };
 
     return super.create(trackerData);
   }
 
   async findByTag(tag: string): Promise<Tracker | null> {
-    return this.findOne((doc) => doc.tag === tag);
+    await ensureTrackerIndex();
+    const result = await trackerDb.find({
+      selector: {
+        _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END },
+        tag,
+      },
+      limit: 1,
+    });
+    return (result.docs[0] as Tracker | undefined) ?? null;
   }
 
   async findByGroupId(groupId: string): Promise<Tracker[]> {
-    const all = await this.findAll();
-    return all.filter(
-      (doc) => doc.groupId === groupId || doc.additionalGroupIds?.includes(groupId),
-    );
+    await ensureTrackerIndex();
+    const result = await trackerDb.find({
+      selector: {
+        _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END },
+        $or: [
+          { groupId },
+          { additionalGroupIds: { $elemMatch: { $eq: groupId } } },
+        ],
+      },
+    });
+    return result.docs as Tracker[];
   }
 
   async findPinned(): Promise<Tracker[]> {
-    const all = await this.findAll();
-    return all
-      .filter((doc) => doc.pinned && !doc.archived)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-  }
-
-  async findArchived(): Promise<Tracker[]> {
-    const all = await this.findAll();
-    return all.filter((doc) => doc.archived);
+    await ensureTrackerIndex();
+    const result = await trackerDb.find({
+      selector: {
+        _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END },
+        pinned: true,
+        archived: false,
+      },
+    });
+    return (result.docs as Tracker[]).sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   async findByTagOrAlias(tagOrAlias: string): Promise<Tracker | null> {
-    return this.findOne(
-      (doc) => doc.tag === tagOrAlias || (doc.aliases?.includes(tagOrAlias) ?? false),
-    );
+    await ensureTrackerIndex();
+    const result = await trackerDb.find({
+      selector: {
+        _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END },
+        $or: [
+          { tag: tagOrAlias },
+          { aliases: { $elemMatch: { $eq: tagOrAlias } } },
+        ],
+      },
+      limit: 1,
+    });
+    return (result.docs[0] as Tracker | undefined) ?? null;
   }
 
-  async resolveTag(input: string): Promise<string | null> {
-    const tracker = await this.findByTagOrAlias(input);
-    return tracker ? tracker.tag : null;
-  }
-
-  async updateTag(trackerId: string, newTag: string): Promise<Tracker> {
-    const tag = slugify(newTag);
-    const existing = await this.findByTag(tag);
-    if (existing && existing._id !== trackerId) {
-      throw new Error(`Tracker with tag ${tag} already exists`);
+  async update(id: string, data: Partial<Omit<Tracker, '_id' | '_rev'>>): Promise<Tracker> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error(`Document with id ${id} not found`);
     }
 
-    return this.update(trackerId, { tag });
+    const nextLabel = data.label ?? existing.label;
+    const nextTag = data.tag ?? existing.tag;
+    const nextAliases = data.aliases ?? existing.aliases;
+    const trackerSearchTokens = buildSearchTokens(nextLabel, nextTag, ...(nextAliases ?? []));
+
+    return super.update(id, { ...data, trackerSearchTokens });
   }
 
-  async addAlias(trackerId: string, alias: string): Promise<Tracker> {
-    const tracker = await this.findById(trackerId);
-    if (!tracker) {
-      throw new Error(`Tracker ${trackerId} not found`);
+  private async ensureSearchTokens(): Promise<void> {
+    if (!trackerTokensReady) {
+      trackerTokensReady = (async () => {
+        const selector = {
+          _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END },
+          trackerSearchTokens: { $exists: false },
+        };
+
+        let missing: Tracker[] = [];
+        try {
+          const result = await trackerDb.find({ selector });
+          missing = result.docs as Tracker[];
+        } catch (err) {
+          missing = await this.findAll();
+        }
+
+        if (!missing.length) return;
+
+        const updates = missing.map((doc) => ({
+          ...doc,
+          trackerSearchTokens: buildSearchTokens(doc.label, doc.tag, ...(doc.aliases ?? [])),
+        }));
+
+        await trackerDb.bulkDocs(updates);
+      })();
     }
 
-    const existing = await this.findByTagOrAlias(alias);
-    if (existing && existing._id !== trackerId) {
-      throw new Error(`Tag or alias ${alias} already in use`);
-    }
-
-    const aliases = tracker.aliases || [];
-    if (!aliases.includes(alias)) {
-      aliases.push(alias);
-    }
-
-    return this.update(trackerId, { aliases });
-  }
-
-  async removeAlias(trackerId: string, alias: string): Promise<Tracker> {
-    const tracker = await this.findById(trackerId);
-    if (!tracker) {
-      throw new Error(`Tracker ${trackerId} not found`);
-    }
-
-    const aliases = (tracker.aliases || []).filter((a) => a !== alias);
-
-    return this.update(trackerId, { aliases });
-  }
-
-  async addToGroup(trackerId: string, groupId: string): Promise<Tracker> {
-    const tracker = await this.findById(trackerId);
-    if (!tracker) {
-      throw new Error(`Tracker ${trackerId} not found`);
-    }
-
-    const additionalGroupIds = tracker.additionalGroupIds || [];
-    if (!additionalGroupIds.includes(groupId) && tracker.groupId !== groupId) {
-      additionalGroupIds.push(groupId);
-    }
-
-    return this.update(trackerId, { additionalGroupIds });
-  }
-
-  async removeFromGroup(trackerId: string, groupId: string): Promise<Tracker> {
-    const tracker = await this.findById(trackerId);
-    if (!tracker) {
-      throw new Error(`Tracker ${trackerId} not found`);
-    }
-
-    if (tracker.groupId === groupId) {
-      throw new Error('Cannot remove tracker from its primary group');
-    }
-
-    const additionalGroupIds = (tracker.additionalGroupIds || []).filter((id) => id !== groupId);
-
-    return this.update(trackerId, { additionalGroupIds });
-  }
-
-  async archive(trackerId: string): Promise<Tracker> {
-    return this.update(trackerId, { archived: true });
-  }
-
-  async unarchive(trackerId: string): Promise<Tracker> {
-    return this.update(trackerId, { archived: false });
-  }
-
-  async pin(trackerId: string): Promise<Tracker> {
-    return this.update(trackerId, { pinned: true });
-  }
-
-  async unpin(trackerId: string): Promise<Tracker> {
-    return this.update(trackerId, { pinned: false });
+    return trackerTokensReady;
   }
 
   async search(
@@ -157,74 +183,107 @@ export class TrackerRepository extends BaseRepository<Tracker> {
     Array<{
       item: Tracker;
       score: number;
-      matches: readonly FuseResultMatch[];
+      matches: readonly { indices: Array<[number, number]> }[];
     }>
   > {
-    const all = await this.findAll();
-    const active = all.filter((doc) => !doc.archived);
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return [];
+    }
 
-    const fuse = new Fuse(active, {
-      keys: [
-        { name: 'tag', weight: 2 },
-        { name: 'label', weight: 1.5 },
-        { name: 'aliases', weight: 1 },
-      ],
-      threshold: 0.4,
-      includeScore: true,
-      includeMatches: true,
-      minMatchCharLength: 1,
-    });
+    await this.ensureSearchTokens();
+    const result = (await trackerDb.search({
+      query: trimmed,
+      fields: TRACKER_SEARCH_FIELDS,
+      mm: TRACKER_SEARCH_MM,
+      include_docs: true,
+      limit,
+    })) as QuickSearchResponse;
 
-    const results = fuse.search(query, { limit });
-
-    return results.map((result) => ({
-      item: result.item,
-      score: result.score ?? 1,
-      matches: result.matches ?? [],
-    }));
+    return result.rows
+      .map((row: QuickSearchRow) => row.doc)
+      .filter((doc): doc is Tracker => !!doc)
+      .filter((doc: Tracker) => !doc.archived)
+      .map((doc: Tracker, index: number) => ({
+        item: doc,
+        score: result.rows[index]?.score ?? 1,
+        matches: [],
+      }));
   }
 
   async searchPaged(options: TrackerSearchOptions = {}): Promise<PagedResult<Tracker>> {
     const query = options.query?.trim() ?? '';
-    const page = Math.max(1, options.page ?? 1);
-    const perPage = options.perPage ?? 10;
+    const cursor = options.cursor;
+    const perPage = Math.max(1, options.perPage ?? 10);
     const archived = options.archived ?? false;
     const groupIds = options.groupIds ?? [];
+    const groupSet = new Set(groupIds);
+    const matchesGroup = (doc: Tracker) => {
+      if (groupSet.size === 0) return true;
+      return groupSet.has(doc.groupId) || doc.additionalGroupIds?.some((id) => groupSet.has(id));
+    };
 
-    const all = await this.findAll();
-    let filtered = all.filter((doc) => doc.archived === archived);
-
-    if (groupIds.length > 0) {
-      const groupSet = new Set(groupIds);
-      filtered = filtered.filter(
-        (doc) => groupSet.has(doc.groupId) || doc.additionalGroupIds?.some((id) => groupSet.has(id)),
-      );
-    }
-
-    let results = filtered;
     if (query) {
-      const fuse = new Fuse(filtered, {
-        keys: [
-          { name: 'label', weight: 2 },
-          { name: 'tag', weight: 1.5 },
-          { name: 'aliases', weight: 1 },
+      await this.ensureSearchTokens();
+      const result = (await trackerDb.search({
+        query,
+        fields: TRACKER_SEARCH_FIELDS,
+        mm: TRACKER_SEARCH_MM,
+        include_docs: true,
+      })) as QuickSearchResponse;
+
+      let filtered = result.rows
+        .map((row: QuickSearchRow) => row.doc)
+        .filter((doc): doc is Tracker => !!doc)
+        .filter((doc: Tracker) => doc.archived === archived)
+        .filter(matchesGroup);
+
+      const total = filtered.length;
+      const start = cursor ? Math.max(filtered.findIndex((doc) => doc._id === cursor) + 1, 0) : 0;
+      const items = filtered.slice(start, start + perPage);
+      const nextCursor = start + perPage < total ? items[items.length - 1]?._id : undefined;
+
+      return { items, total, perPage, nextCursor };
+    }
+
+    await ensureTrackerIndex();
+
+    const idSelector = cursor
+      ? { _id: { $gt: cursor, $lte: TRACKER_END } }
+      : { _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END } };
+
+    let selector: Record<string, unknown> = {
+      ...idSelector,
+      archived,
+    };
+
+    if (groupSet.size > 0) {
+      selector = {
+        $and: [
+          idSelector,
+          { archived },
+          {
+            $or: [
+              { groupId: { $in: groupIds } },
+              { additionalGroupIds: { $in: groupIds } },
+            ],
+          },
         ],
-        threshold: 0.4,
-        ignoreLocation: true,
-        minMatchCharLength: 1,
-      });
-      results = fuse.search(query).map((result) => result.item);
+      };
     }
 
-    const total = results.length;
-    if (perPage <= 0) {
-      return { items: results, total, page, perPage };
-    }
+    const result = await db.find({
+      selector,
+      sort: ['_id'],
+      limit: perPage + 1,
+    });
 
-    const start = (page - 1) * perPage;
-    const items = results.slice(start, start + perPage);
+    const docs = result.docs as Tracker[];
+    const hasMore = docs.length > perPage;
+    const items = hasMore ? docs.slice(0, perPage) : docs;
+    const nextCursor = hasMore ? items[items.length - 1]?._id : undefined;
 
-    return { items, total, page, perPage };
+    return { items, perPage, nextCursor };
   }
 }
 

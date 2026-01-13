@@ -36,6 +36,7 @@ export interface Tracker extends BaseDocument {
   additionalGroupIds?: string[];
   icon?: string;
   aliases?: string[];
+  trackerSearchTokens?: string[];
   sortOrder: number;
   archived: boolean;
   pinned: boolean;
@@ -51,12 +52,19 @@ export interface Group extends BaseDocument {
   description?: string;
   icon?: string;
   color?: string;
+  groupSearchTokens?: string[];
   allowsTrackers: boolean;
   sortOrder: number;
   archived: boolean;
 }
 
-export type FieldValue = number | string | boolean | null;
+export type PhotoValue = {
+  mediaId: string;
+  thumbnail?: string;
+  contentType?: string;
+};
+
+export type FieldValue = number | string | boolean | PhotoValue | null;
 
 export interface EntryData {
   trackerId: string;
@@ -91,6 +99,16 @@ export interface Entry extends BaseDocument {
     lng: number;
     name?: string;
   };
+}
+
+export interface EntryMedia extends BaseDocument {
+  _id: string;
+  entryId?: string;
+  trackerId?: string;
+  fieldName?: string;
+  contentType?: string;
+  size?: number;
+  _attachments?: PouchDB.Core.Attachments;
 }
 
 export type SessionType = 'workout' | 'meal' | 'custom' | 'ai';
@@ -147,6 +165,7 @@ export interface Goal extends BaseDocument {
   rollover: boolean;
   icon?: string;
   color?: string;
+  goalSearchTokens?: string[];
   archived: boolean;
   pinned: boolean;
   sortOrder: number;
@@ -163,8 +182,8 @@ export interface QueryOptions {
 
 export interface PagedResult<T> {
   items: T[];
-  total: number;
-  page: number;
+  total?: number;
+  nextCursor?: string;
   perPage: number;
 }
 

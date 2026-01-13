@@ -18,10 +18,8 @@ export const supportsImageModel = (model: string) =>
 export const supportsVisionModel = (model: string) => {
   const lower = model.toLowerCase();
   return (
-    lower.includes('gpt-4o') ||
-    lower.includes('gpt-4.1') ||
-    lower.includes('vision') ||
-    lower.includes('claude-3.5') ||
+    lower.includes('gpt') ||
+    lower.includes('claude') ||
     lower.includes('gemini')
   );
 };
@@ -46,6 +44,11 @@ const loadImage = (dataUrl: string): Promise<HTMLImageElement> =>
     img.onerror = () => reject(new Error('Failed to load image.'));
     img.src = dataUrl;
   });
+
+export const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
+  const response = await fetch(dataUrl);
+  return response.blob();
+};
 
 export const compressDataUrl = async (
   dataUrl: string,
@@ -91,6 +94,50 @@ export const compressDataUrl = async (
   }
 
   return compressed;
+};
+
+export const createThumbnailDataUrl = async (
+  dataUrl: string,
+  maxBytes: number = 10 * 1024,
+  maxDimension: number = 256,
+) => {
+  const img = await loadImage(dataUrl);
+  let width = img.width;
+  let height = img.height;
+
+  if (Math.max(width, height) > maxDimension) {
+    const scale = maxDimension / Math.max(width, height);
+    width = Math.max(1, Math.round(width * scale));
+    height = Math.max(1, Math.round(height * scale));
+  }
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Unable to create thumbnail.');
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let quality = 0.7;
+  let thumbnail = canvas.toDataURL('image/jpeg', quality);
+
+  while (estimateDataUrlBytes(thumbnail) > maxBytes && quality > 0.3) {
+    quality -= 0.1;
+    thumbnail = canvas.toDataURL('image/jpeg', quality);
+  }
+
+  if (estimateDataUrlBytes(thumbnail) > maxBytes) {
+    const scale = 0.8;
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    thumbnail = canvas.toDataURL('image/jpeg', 0.5);
+  }
+
+  return thumbnail;
 };
 
 const fetchImageAsDataUrl = async (url: string) => {

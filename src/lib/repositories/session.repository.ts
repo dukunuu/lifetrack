@@ -1,10 +1,27 @@
 import { BaseRepository } from './base.repository';
 import { generateId, timestamp } from '../db/utils';
 import { db } from '../db';
-import type { Session, SessionType, SessionStatus, QueryOptions } from '../db/types';
+import type { Session, SessionType } from '../db/types';
 
 export class SessionRepository extends BaseRepository<Session> {
   protected prefix = 'session';
+
+  private nonAiSessionTypes: SessionType[] = ['workout', 'meal', 'custom'];
+  private sessionIndexReady: Promise<void> | null = null;
+
+  private ensureSessionIndex = async () => {
+    if (!this.sessionIndexReady) {
+      this.sessionIndexReady = db
+        .createIndex({
+          index: {
+            fields: ['_id', 'status', 'type'],
+            name: 'sessions-by-status-type',
+          },
+        })
+        .then(() => undefined);
+    }
+    return this.sessionIndexReady;
+  };
 
   async create(data: Omit<Session, '_id' | '_rev' | 'createdAt' | 'updatedAt'>): Promise<Session> {
     const sessionData = {
@@ -16,26 +33,16 @@ export class SessionRepository extends BaseRepository<Session> {
   }
 
   async findActive(): Promise<Session | null> {
-    return this.findOne((doc) => doc.status === 'active' && doc.type !== 'ai');
-  }
-
-  async findByStatus(status: SessionStatus, options?: QueryOptions): Promise<Session[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.status === status);
-  }
-
-  async findByType(type: SessionType, options?: QueryOptions): Promise<Session[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.type === type);
-  }
-
-  async findByGroup(groupId: string, options?: QueryOptions): Promise<Session[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.groupId === groupId);
-  }
-
-  async findCompleted(options?: QueryOptions): Promise<Session[]> {
-    return this.findByStatus('completed', options);
+    await this.ensureSessionIndex();
+    const result = await db.find({
+      selector: {
+        _id: { $gte: 'session:', $lte: 'session:\ufff0' },
+        status: 'active',
+        type: { $in: this.nonAiSessionTypes },
+      },
+      limit: 1,
+    });
+    return (result.docs[0] as Session | undefined) ?? null;
   }
 
   async findRecent(limit: number = 20): Promise<Session[]> {
@@ -202,16 +209,6 @@ export class SessionRepository extends BaseRepository<Session> {
     if (hasImages) {
       await db.compact();
     }
-  }
-
-  async getSessionDuration(sessionId: string): Promise<number> {
-    const session = await this.findById(sessionId);
-    if (!session) {
-      throw new Error(`Session ${sessionId} not found`);
-    }
-
-    const endTime = session.endTime || timestamp();
-    return Math.floor((new Date(endTime).getTime() - new Date(session.startTime).getTime()) / 1000);
   }
 }
 

@@ -1,12 +1,17 @@
 import { createSignal, createEffect } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
-import type { EntryData, Tracker } from '../db/types';
+import type { EntryData, PhotoValue, Tracker } from '../db/types';
 import { trackerRepo, entryRepo, sessionRepo, groupRepo } from '../repositories';
 import { parserService } from '../services/parser';
 import { timestamp, dateString } from '../db/utils';
 import { Tokenizer } from '../services/parser/tokenizer';
 import { useSettings } from './useSettings';
 import { runChatTurn } from '../services/chat-runtime';
+import {
+  createThumbnailDataUrl,
+  dataUrlToBlob,
+  readFileAsDataUrl,
+} from '../services/image-service';
 import Fuse from 'fuse.js';
 
 export interface TrackerSuggestion {
@@ -31,7 +36,7 @@ export function useQuickAdd() {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const [input, setInput] = createSignal('');
-  const [attachment, setAttachment] = createSignal('');
+  const [attachment, setAttachment] = createSignal<File | null>(null);
   const [suggestions, setSuggestions] = createSignal<AutocompleteSuggestion[]>([]);
   const [selectedIndex, setSelectedIndex] = createSignal(0);
   const [showSuggestions, setShowSuggestions] = createSignal(false);
@@ -301,11 +306,11 @@ export function useQuickAdd() {
 
       // Parse input
       const parseResult = await parserService.parse(value);
-      const attachmentDataUrl = attachment();
+      const attachmentFile = attachment();
 
       if (parseResult.errors.length > 0) {
         const firstTracker = parseResult.trackerData[0]?.tracker;
-        if (attachmentDataUrl && firstTracker) {
+        if (attachmentFile && firstTracker) {
           const photoFields = firstTracker.fields.filter((field) => field.type === 'photo');
           const filteredErrors = parseResult.errors.filter(
             (err) =>
@@ -326,7 +331,7 @@ export function useQuickAdd() {
         throw new Error('No trackers found in input');
       }
 
-      if (attachmentDataUrl) {
+      if (attachmentFile) {
         if (parseResult.trackerData.length !== 1) {
           throw new Error('Attach images with a single tracker tag.');
         }
@@ -337,7 +342,24 @@ export function useQuickAdd() {
         if (!photoField) {
           throw new Error('This tracker does not accept image attachments.');
         }
-        parseResult.trackerData[0].values[photoField.name] = attachmentDataUrl;
+        const compressedDataUrl = await readFileAsDataUrl(attachmentFile);
+        const thumbnail = await createThumbnailDataUrl(compressedDataUrl);
+        const blob = await dataUrlToBlob(compressedDataUrl);
+
+        const media = await entryRepo.createMediaAttachment({
+          blob,
+          contentType: blob.type,
+          trackerId: tracker._id,
+          fieldName: photoField.name,
+        });
+
+        const photoValue: PhotoValue = {
+          mediaId: media._id,
+          thumbnail,
+          contentType: blob.type,
+        };
+
+        parseResult.trackerData[0].values[photoField.name] = photoValue;
       }
 
       // Create entry or append to session
@@ -392,7 +414,7 @@ export function useQuickAdd() {
 
       // Clear input
       setInput('');
-      setAttachment('');
+      setAttachment(null);
       setShowSuggestions(false);
     } catch (err) {
       setError(err as Error);

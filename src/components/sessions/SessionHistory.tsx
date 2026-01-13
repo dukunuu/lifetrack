@@ -62,7 +62,7 @@ export default function SessionHistory() {
   const { sessions, loading } = useSessions();
   const { groups } = useGroups();
   const { entries } = useEntriesAll();
-  const { trackers } = useTrackers();
+  const { trackers } = useTrackers({ loadAll: true });
   const [expandedId, setExpandedId] = createSignal<string | null>(null);
 
   const groupMap = createMemo(() => {

@@ -1,8 +1,16 @@
-import { For, Show, createSignal } from 'solid-js';
+import { For, Show, createSignal, onMount } from 'solid-js';
 import { Cloud, Sparkles, Palette, SlidersHorizontal, Eye, EyeOff } from 'lucide-solid';
 import { useSearchParams } from '@solidjs/router';
 import { useSettings } from '../lib/hooks/useSettings';
-import { destroyDatabase } from '../lib/db';
+import {
+  ACTIVE_INDEX_NAMES,
+  cleanupIndexes,
+  destroyDatabase,
+  exportDatabase,
+  getConflictCount,
+  resolveConflicts,
+  runMaintenance,
+} from '../lib/db';
 import { OPENROUTER_MODELS } from '../lib/constants/ai-models';
 
 const THEMES = [
@@ -20,6 +28,15 @@ export default function Settings() {
   const [showSyncPassword, setShowSyncPassword] = createSignal(false);
   const [showOpenRouterKey, setShowOpenRouterKey] = createSignal(false);
   const [purgeLoading, setPurgeLoading] = createSignal(false);
+  const [maintenanceLoading, setMaintenanceLoading] = createSignal(false);
+  const [exportLoading, setExportLoading] = createSignal(false);
+  const [conflictCount, setConflictCount] = createSignal<number | null>(null);
+  const [conflictLoading, setConflictLoading] = createSignal(false);
+  const [indexCleanupLoading, setIndexCleanupLoading] = createSignal(false);
+  const [indexCleanupCount, setIndexCleanupCount] = createSignal<number | null>(null);
+  const [storageUsage, setStorageUsage] = createSignal<number | null>(null);
+  const [storageQuota, setStorageQuota] = createSignal<number | null>(null);
+  const [storagePersisted, setStoragePersisted] = createSignal<boolean | null>(null);
 
   const updateSync = (
     field: 'enabled' | 'endpoint' | 'username' | 'password' | 'apiKey',
@@ -143,6 +160,114 @@ export default function Settings() {
       setPurgeLoading(false);
     }
   };
+
+  const refreshStorageEstimate = async () => {
+    if (!navigator.storage?.estimate) return;
+    const estimate = await navigator.storage.estimate();
+    setStorageUsage(typeof estimate.usage === 'number' ? estimate.usage : null);
+    setStorageQuota(typeof estimate.quota === 'number' ? estimate.quota : null);
+  };
+
+  const refreshStoragePersisted = async () => {
+    if (!navigator.storage?.persisted) return;
+    const persisted = await navigator.storage.persisted();
+    setStoragePersisted(persisted);
+  };
+
+  const requestPersistentStorage = async () => {
+    if (!navigator.storage?.persist) return;
+    const persisted = await navigator.storage.persist();
+    setStoragePersisted(persisted);
+  };
+
+  const handleMaintenance = async () => {
+    try {
+      setMaintenanceLoading(true);
+      await runMaintenance();
+      await refreshStorageEstimate();
+    } catch (err) {
+      console.error('Maintenance failed:', err);
+      alert('Maintenance failed. Please try again.');
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      const blob = await exportDatabase();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const timestampLabel = new Date().toISOString().replace(/[:.]/g, '-');
+      link.href = url;
+      link.download = `lifetrack-export-${timestampLabel}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Export failed. Please try again.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const refreshConflictCount = async () => {
+    try {
+      const count = await getConflictCount();
+      setConflictCount(count);
+    } catch (err) {
+      console.error('Failed to load conflict count:', err);
+      setConflictCount(null);
+    }
+  };
+
+  const handleResolveConflicts = async () => {
+    try {
+      setConflictLoading(true);
+      const resolved = await resolveConflicts();
+      await refreshConflictCount();
+      alert(resolved > 0 ? `Resolved ${resolved} conflicting revisions.` : 'No conflicts found.');
+    } catch (err) {
+      console.error('Conflict resolution failed:', err);
+      alert('Conflict resolution failed. Please try again.');
+    } finally {
+      setConflictLoading(false);
+    }
+  };
+
+  const handleCleanupIndexes = async () => {
+    try {
+      setIndexCleanupLoading(true);
+      const removed = await cleanupIndexes(ACTIVE_INDEX_NAMES);
+      setIndexCleanupCount(removed);
+    } catch (err) {
+      console.error('Index cleanup failed:', err);
+      alert('Index cleanup failed. Please try again.');
+    } finally {
+      setIndexCleanupLoading(false);
+    }
+  };
+
+  const formatBytes = (value: number | null) => {
+    if (value === null) return 'Unknown';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let remaining = value;
+    let unitIndex = 0;
+    while (remaining >= 1024 && unitIndex < units.length - 1) {
+      remaining /= 1024;
+      unitIndex += 1;
+    }
+    return `${remaining.toFixed(1)} ${units[unitIndex]}`;
+  };
+
+  onMount(() => {
+    refreshStorageEstimate();
+    refreshStoragePersisted();
+    refreshConflictCount();
+  });
 
   return (
     <div class="flex-1 p-6 lg:p-8">
@@ -278,6 +403,123 @@ export default function Settings() {
                 </button>
               </div>
             </label>
+          </div>
+        </section>
+
+        <section class="border-base-300/50 bg-base-100/70 rounded-2xl border p-6 shadow-sm">
+          <div class="mb-5 flex items-center gap-3">
+            <div class="bg-primary/10 text-primary grid size-10 place-items-center rounded-xl">
+              <SlidersHorizontal class="size-5" />
+            </div>
+            <div>
+              <h2 class="text-lg font-bold">Storage & Maintenance</h2>
+              <p class="text-base-content/60 text-sm">
+                Track local storage usage and keep the database compact.
+              </p>
+            </div>
+          </div>
+
+          <div class="space-y-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="text-base-content/70 text-sm font-semibold">Local storage usage</div>
+                <div class="text-base-content/50 text-xs">
+                  {formatBytes(storageUsage())} used of {formatBytes(storageQuota())}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm"
+                onClick={refreshStorageEstimate}
+              >
+                Refresh
+              </button>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="text-base-content/70 text-sm font-semibold">Persistent storage</div>
+                <div class="text-base-content/50 text-xs">
+                  {storagePersisted() === null
+                    ? 'Status unavailable'
+                    : storagePersisted()
+                      ? 'Enabled'
+                      : 'Not enabled'}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                disabled={storagePersisted() === true}
+                onClick={requestPersistentStorage}
+              >
+                Request
+              </button>
+            </div>
+
+            <div class="border-base-content/10 border-t pt-4">
+              <div class="text-base-content/70 text-sm font-semibold">Maintenance</div>
+              <div class="text-base-content/50 text-xs">
+                Compact the database and clean up view indexes.
+              </div>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm mt-3"
+                onClick={handleMaintenance}
+                disabled={maintenanceLoading()}
+              >
+                {maintenanceLoading() ? 'Running…' : 'Run maintenance'}
+              </button>
+            </div>
+
+            <div class="border-base-content/10 border-t pt-4">
+              <div class="text-base-content/70 text-sm font-semibold">Export data</div>
+              <div class="text-base-content/50 text-xs">
+                Download a full backup with attachments (JSON).
+              </div>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm mt-3"
+                onClick={handleExport}
+                disabled={exportLoading()}
+              >
+                {exportLoading() ? 'Preparing…' : 'Download backup'}
+              </button>
+            </div>
+
+            <div class="border-base-content/10 border-t pt-4">
+              <div class="text-base-content/70 text-sm font-semibold">Conflict resolution</div>
+              <div class="text-base-content/50 text-xs">
+                {conflictCount() === null
+                  ? 'Conflict status unavailable.'
+                  : `${conflictCount()} conflict${conflictCount() === 1 ? '' : 's'} detected.`}
+              </div>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm mt-3"
+                onClick={handleResolveConflicts}
+                disabled={conflictLoading()}
+              >
+                {conflictLoading() ? 'Resolving…' : 'Resolve conflicts'}
+              </button>
+            </div>
+
+            <div class="border-base-content/10 border-t pt-4">
+              <div class="text-base-content/70 text-sm font-semibold">Index cleanup</div>
+              <div class="text-base-content/50 text-xs">
+                {indexCleanupCount() === null
+                  ? 'Remove stale find indexes.'
+                  : `Removed ${indexCleanupCount()} index${indexCleanupCount() === 1 ? '' : 'es'}.`}
+              </div>
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm mt-3"
+                onClick={handleCleanupIndexes}
+                disabled={indexCleanupLoading()}
+              >
+                {indexCleanupLoading() ? 'Cleaning…' : 'Clean indexes'}
+              </button>
+            </div>
           </div>
         </section>
 

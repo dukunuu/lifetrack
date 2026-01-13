@@ -55,7 +55,7 @@ export default function EntryFeed() {
     }
   };
 
-  const { trackers } = useTrackers();
+  const { trackers } = useTrackers({ loadAll: true });
   const trackerMap = createMemo(() => {
     const map = new Map<string, Tracker>();
     trackers().forEach((tracker) => map.set(tracker._id, tracker));

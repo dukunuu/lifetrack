@@ -9,15 +9,16 @@ import FormErrorAlert from '../common/FormErrorAlert';
 import { groupSchema } from '../../lib/schemas/group.schema';
 import { Sparkles } from 'lucide-solid';
 import { useAiJsonCompletion } from '../../lib/hooks/useAiJsonCompletion';
+import { useGroups } from '../../lib/hooks/useGroups';
 
 interface GroupFormProps {
-  groups: Group[];
   onSubmit: (data: Omit<Group, '_id' | '_rev' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   onCancel?: () => void;
   initialData?: Group;
 }
 
 export default function GroupFormV2(props: GroupFormProps) {
+  const { groups } = useGroups({ load: 'active' });
   const [mode, setMode] = createSignal<'form' | 'json'>('form');
 
   // Form mode state
@@ -38,6 +39,7 @@ export default function GroupFormV2(props: GroupFormProps) {
         name: props.initialData?.name || '',
         slug: props.initialData?.slug || '',
         parentId: props.initialData?.parentId || null,
+        path: props.initialData?.path || '',
         description: props.initialData?.description || '',
         icon: props.initialData?.icon || '',
         color: props.initialData?.color || '',
@@ -55,7 +57,7 @@ export default function GroupFormV2(props: GroupFormProps) {
   const [validationErrors, setValidationErrors] = createSignal<Record<string, string>>({});
 
   const aiGroups = createMemo(() =>
-    props.groups.map((group) => ({
+    groups().map((group) => ({
       id: group._id,
       name: group.name,
       path: group.path,
@@ -85,6 +87,23 @@ export default function GroupFormV2(props: GroupFormProps) {
     getPromptContext: () => aiContextLines(),
     getJsonValue: jsonValue,
     onJsonReady: setJsonValue,
+  });
+
+  const availableParents = createMemo(() => {
+    const allGroups = groups();
+    const editingGroup = props.initialData;
+  
+    if (!editingGroup) {
+      return allGroups;
+    }
+  
+    return allGroups.filter((g) => {
+      const isSelf = g._id === editingGroup._id;
+  
+      const isDescendant = g.path.startsWith(`${editingGroup.path}/`);
+  
+      return !isSelf && !isDescendant;
+    }).sort((a,b) => a.depth - b.depth);
   });
 
   // Keyboard shortcuts
@@ -284,15 +303,15 @@ export default function GroupFormV2(props: GroupFormProps) {
                     value={parentId() || ''}
                     onChange={(e) => setParentId(e.currentTarget.value || null)}
                   >
-                    <option value="">None (Root Group)</option>
-                    <For
-                      each={props.groups.filter(
-                        (g) => !props.initialData || g._id !== props.initialData._id,
-                      )}
-                    >
+                    <option value="" selected={!parentId()}>None (Root Group)</option>
+                    <For each={availableParents()}>
                       {(group) => (
-                        <option value={group._id}>
-                          {'  '.repeat(group.depth)}
+                        <option 
+                          value={group._id} 
+                          selected={group._id === parentId()}
+                        >
+                          {/* Use \u00A0 (non-breaking space) for indentation */}
+                          {'\u00A0'.repeat(group.depth * 2)}
                           {group.name}
                         </option>
                       )}

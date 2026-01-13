@@ -1,9 +1,26 @@
 import { BaseRepository } from './base.repository';
-import { generateId, dateString } from '../db/utils';
-import type { Entry, QueryOptions } from '../db/types';
+import { generateId, dateString, timestamp } from '../db/utils';
+import type { Entry, EntryData, EntryMedia, PhotoValue, QueryOptions } from '../db/types';
+import { db } from '../db';
 
 export class EntryRepository extends BaseRepository<Entry> {
   protected prefix = 'entry';
+
+  private entryIndexReady: Promise<void> | null = null;
+
+  private ensureEntryIndex = async () => {
+    if (!this.entryIndexReady) {
+      this.entryIndexReady = db
+        .createIndex({
+          index: {
+            fields: ['_id', 'date'],
+            name: 'entries-by-date',
+          },
+        })
+        .then(() => undefined);
+    }
+    return this.entryIndexReady;
+  };
 
   async create(data: Omit<Entry, '_id' | '_rev' | 'createdAt' | 'updatedAt'>): Promise<Entry> {
     const date = data.date || dateString(new Date(data.timestamp));
@@ -14,41 +31,23 @@ export class EntryRepository extends BaseRepository<Entry> {
       date,
     };
 
-    return super.create(entryData);
+    const entry = await super.create(entryData);
+    await this.linkMediaToEntry(entry._id, entry.data);
+    return entry;
   }
 
   async findByDate(date: string, options?: QueryOptions): Promise<Entry[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.date === date);
-  }
-
-  async findByDateRange(
-    startDate: string,
-    endDate: string,
-    options?: QueryOptions,
-  ): Promise<Entry[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.date >= startDate && doc.date <= endDate);
-  }
-
-  async findByTracker(trackerId: string, options?: QueryOptions): Promise<Entry[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.data.some((d) => d.trackerId === trackerId));
-  }
-
-  async findByTrackerTag(tag: string, options?: QueryOptions): Promise<Entry[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.data.some((d) => d.trackerTag === tag));
-  }
-
-  async findBySession(sessionId: string, options?: QueryOptions): Promise<Entry[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.sessionId === sessionId);
-  }
-
-  async findByGroup(groupId: string, options?: QueryOptions): Promise<Entry[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.groupId === groupId);
+    await this.ensureEntryIndex();
+    const selector: Record<string, unknown> = {
+      _id: { $gte: 'entry:', $lte: 'entry:\ufff0' },
+      date,
+    };
+    const result = await db.find({
+      selector,
+      limit: options?.limit,
+      skip: options?.skip,
+    });
+    return result.docs as Entry[];
   }
 
   async findRecent(limit: number = 50): Promise<Entry[]> {
@@ -58,80 +57,6 @@ export class EntryRepository extends BaseRepository<Entry> {
     });
 
     return result;
-  }
-
-  async findWithPhotos(options?: QueryOptions): Promise<Entry[]> {
-    const all = await this.findAll(options);
-    return all.filter((doc) => doc.photos && doc.photos.length > 0);
-  }
-
-  async findByLocation(
-    lat: number,
-    lng: number,
-    radiusKm: number,
-    options?: QueryOptions,
-  ): Promise<Entry[]> {
-    const all = await this.findAll(options);
-
-    return all.filter((doc) => {
-      if (!doc.location) return false;
-
-      const distance = this._calculateDistance(lat, lng, doc.location.lat, doc.location.lng);
-
-      return distance <= radiusKm;
-    });
-  }
-
-  async getDateStats(date: string): Promise<{
-    totalEntries: number;
-    uniqueTrackers: number;
-    trackerCounts: Record<string, number>;
-  }> {
-    const entries = await this.findByDate(date);
-    const trackerCounts: Record<string, number> = {};
-
-    for (const entry of entries) {
-      for (const data of entry.data) {
-        trackerCounts[data.trackerTag] = (trackerCounts[data.trackerTag] || 0) + 1;
-      }
-    }
-
-    return {
-      totalEntries: entries.length,
-      uniqueTrackers: Object.keys(trackerCounts).length,
-      trackerCounts,
-    };
-  }
-
-  async getTrackerHistory(trackerId: string, limit?: number): Promise<Entry[]> {
-    const entries = await this.findByTracker(trackerId, {
-      limit,
-      descending: true,
-    });
-
-    return entries;
-  }
-
-  private _calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371;
-    const dLat = this._deg2rad(lat2 - lat1);
-    const dLon = this._deg2rad(lon2 - lon1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this._deg2rad(lat1)) *
-        Math.cos(this._deg2rad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-
-    return distance;
-  }
-
-  private _deg2rad(deg: number): number {
-    return deg * (Math.PI / 180);
   }
 
   async findRecentWithPagination(
@@ -171,6 +96,100 @@ export class EntryRepository extends BaseRepository<Entry> {
     }
 
     return Array.from(tagsSet).slice(0, limit);
+  }
+
+  async createMediaAttachment(options: {
+    blob: Blob;
+    contentType?: string;
+    entryId?: string;
+    trackerId?: string;
+    fieldName?: string;
+  }): Promise<EntryMedia> {
+    const now = timestamp();
+    const mediaDoc: EntryMedia = {
+      _id: generateId.media(),
+      createdAt: now,
+      updatedAt: now,
+      entryId: options.entryId,
+      trackerId: options.trackerId,
+      fieldName: options.fieldName,
+      contentType: options.contentType,
+      size: options.blob.size,
+      _attachments: {
+        original: {
+          content_type: options.contentType ?? options.blob.type ?? 'application/octet-stream',
+          data: options.blob,
+        },
+      },
+    };
+
+    const response = await db.put(mediaDoc as EntryMedia);
+    return {
+      ...mediaDoc,
+      _rev: response.rev,
+    };
+  }
+
+  async getMediaAttachment(mediaId: string, name: string = 'original'): Promise<Blob | null> {
+    try {
+      const doc = await db.get<EntryMedia>(mediaId, {
+        attachments: true,
+        binary: true,
+      });
+      const attachment = doc._attachments?.[name] as PouchDB.Core.FullAttachment | undefined;
+      const data = attachment?.data;
+      if (!data) return null;
+      return data as Blob;
+    } catch (err: any) {
+      if (err.status === 404) return null;
+      throw err;
+    }
+  }
+
+  private async linkMediaToEntry(entryId: string, data: EntryData[]): Promise<void> {
+    const mediaIds = new Set<string>();
+    data.forEach((entryData) => {
+      Object.values(entryData.values).forEach((value) => {
+        if (this.isPhotoValue(value)) {
+          mediaIds.add(value.mediaId);
+        }
+      });
+    });
+
+    if (mediaIds.size === 0) return;
+
+    const result = await db.allDocs<EntryMedia>({
+      keys: Array.from(mediaIds),
+      include_docs: true,
+    });
+
+    const updates: EntryMedia[] = [];
+    result.rows.forEach((row) => {
+      if ('doc' in row && row.doc) {
+        updates.push(row.doc as EntryMedia);
+      }
+    });
+
+    const patched = updates
+      .filter((doc) => doc.entryId !== entryId)
+      .map((doc) => ({
+        ...doc,
+        entryId,
+        updatedAt: timestamp(),
+      }));
+
+    if (patched.length > 0) {
+      await db.bulkDocs(patched);
+    }
+  }
+
+  private isPhotoValue(value: EntryData['values'][string]): value is PhotoValue {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'mediaId' in value &&
+      typeof (value as PhotoValue).mediaId === 'string'
+    );
   }
 }
 

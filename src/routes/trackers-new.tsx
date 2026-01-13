@@ -1,4 +1,4 @@
-import { Show, createMemo } from 'solid-js';
+import { Show, createMemo, createResource } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import { useTrackers } from '../lib/hooks/useTrackers';
 import { useGroups } from '../lib/hooks/useGroups';
@@ -6,51 +6,61 @@ import TrackerFormV2 from '../components/trackers/TrackerFormV2';
 import TrackerList from '../components/trackers/TrackerList';
 import GroupFormV2 from '../components/groups/GroupFormV2';
 import GroupList from '../components/groups/GroupList';
+import PageShell from '../components/layout/PageShell';
 import type { Tracker, Group } from '../lib/db/types';
 import { Plus, Target, FolderTree } from 'lucide-solid';
 
 export default function TrackersAndGroups() {
   const {
-    trackers,
     loading: trackersLoading,
     createTracker,
     updateTracker,
     deleteTracker,
     searchTrackers,
-  } = useTrackers();
+    findById: findTrackerById,
+    revision: trackerRevision,
+  } = useTrackers({ loadAll: false });
   const {
-    groups,
     loading: groupsLoading,
     createGroup,
     updateGroup,
     deleteGroup,
+    findById: findGroupById,
+    revision: groupRevision,
     searchGroups,
   } = useGroups();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeTab = createMemo(() => (searchParams.tab === 'groups' ? 'groups' : 'trackers'));
-  const createType = createMemo(() => searchParams.create as 'tracker' | 'group' | undefined);
-  const editType = createMemo(() => searchParams.edit as 'tracker' | 'group' | undefined);
-  const editId = createMemo(() => searchParams.id);
+  const action = createMemo(() => searchParams.action as 'create' | 'edit' | undefined);
+  const editId = createMemo(() => (typeof searchParams.id === 'string' ? searchParams.id : undefined));
 
-  const editingTracker = createMemo(() => {
-    if (editType() === 'tracker' && editId()) {
-      return trackers().find((t) => t._id === editId());
+  const [editingTracker] = createResource(
+    () => ({
+      id: action() === 'edit' && activeTab() === 'trackers' ? editId() : undefined,
+      revision: trackerRevision(),
+    }),
+    async (source) => {
+      if (!source.id) return undefined;
+      return (await findTrackerById(source.id)) ?? undefined;
+    },
+  );
+
+  const [editingGroup] = createResource(
+    () => ({
+      id: action() === 'edit' && activeTab() === 'groups' ? editId() : undefined,
+      revision: groupRevision()
+    }),
+    async (source) => {
+      if (!source.id) return undefined;
+      return (await findGroupById(source.id)) ?? undefined;
     }
-    return undefined;
-  });
+  )
 
-  const editingGroup = createMemo(() => {
-    if (editType() === 'group' && editId()) {
-      return groups().find((g) => g._id === editId());
-    }
-    return undefined;
-  });
-
-  const showModal = createMemo(() => !!createType() || !!editType());
+  const showModal = createMemo(() => !!action());
 
   const closeModal = () => {
-    setSearchParams({ create: undefined, edit: undefined, id: undefined });
+    setSearchParams({ action: undefined, id: undefined });
   };
 
   // Tracker handlers
@@ -86,7 +96,7 @@ export default function TrackersAndGroups() {
   };
 
   const handleEditTrackerClick = (tracker: Tracker) => {
-    setSearchParams({ edit: 'tracker', id: tracker._id });
+    setSearchParams({ action: 'edit', id: tracker._id });
   };
 
   // Group handlers
@@ -120,152 +130,141 @@ export default function TrackersAndGroups() {
   };
 
   const handleEditGroupClick = (group: Group) => {
-    setSearchParams({ edit: 'group', id: group._id });
+    setSearchParams({ action: 'edit', id: group._id });
   };
 
   const loading = () => trackersLoading() || groupsLoading();
 
   return (
-    <div class="bg-base-100 min-h-screen">
-      <div class="container mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        {/* Header */}
-        <div class="mb-6 sm:mb-8">
-          <h1 class="from-primary to-secondary mb-2 bg-gradient-to-r bg-clip-text text-3xl font-bold text-transparent sm:text-4xl">
-            Trackers & Groups
-          </h1>
-          <p class="text-base-content/70 text-base sm:text-lg">
-            Define custom trackers and organize them into hierarchical groups
-          </p>
-        </div>
-
-        {/* Tabs */}
-        <div class="mb-6">
-          <div role="tablist" class="tabs tabs-boxed bg-base-200 w-full p-1 sm:w-auto">
-            <button
-              type="button"
-              role="tab"
-              class={`tab flex-1 gap-2 sm:flex-none ${activeTab() === 'trackers' ? 'tab-active' : ''}`}
-              onClick={() =>
-                setSearchParams({
-                  tab: 'trackers',
-                  create: undefined,
-                  edit: undefined,
-                  id: undefined,
-                })
-              }
-            >
-              <Target size={18} class="hidden sm:inline" />
-              <span>Trackers</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              class={`tab flex-1 gap-2 sm:flex-none ${activeTab() === 'groups' ? 'tab-active' : ''}`}
-              onClick={() =>
-                setSearchParams({
-                  tab: 'groups',
-                  create: undefined,
-                  edit: undefined,
-                  id: undefined,
-                })
-              }
-            >
-              <FolderTree size={18} class="hidden sm:inline" />
-              <span>Groups</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div class="space-y-6">
-          {/* Loading State */}
-          <Show when={loading()}>
-            <div class="flex items-center justify-center py-20">
-              <span class="loading loading-spinner loading-lg text-primary"></span>
+    <PageShell
+      title="Trackers & Groups"
+      subtitle="Define custom trackers and organize them into hierarchical groups"
+      fab={
+        activeTab() === 'trackers'
+          ? {
+              label: 'New Tracker',
+              icon: <Plus size={28} />,
+              onClick: () => setSearchParams({ action: 'create' }),
+            }
+          : {
+              label: 'New Group',
+              icon: <Plus size={28} />,
+              onClick: () => setSearchParams({ action: 'create' }),
+            }
+      }
+      after={
+        <Show when={showModal()}>
+          <div class="modal modal-open backdrop-blur-sm">
+            <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-4xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
+              <Show when={action() === 'create' && activeTab() === 'trackers'}>
+                <TrackerFormV2
+                  onSubmit={handleCreateTracker}
+                  onCancel={closeModal}
+                />
+              </Show>
+              <Show when={action() === 'edit' && activeTab() === 'trackers' && editingTracker()}>
+                <TrackerFormV2
+                  onSubmit={handleEditTracker}
+                  onCancel={closeModal}
+                  initialData={editingTracker()}
+                />
+              </Show>
+              <Show when={action() === 'create' && activeTab() === 'groups'}>
+                <GroupFormV2
+                  onSubmit={handleCreateGroup}
+                  onCancel={closeModal}
+                />
+              </Show>
+              <Show when={action() === 'edit' && activeTab() === 'groups' && editingGroup()}>
+                <GroupFormV2
+                  onSubmit={handleEditGroup}
+                  onCancel={closeModal}
+                  initialData={editingGroup()}
+                />
+              </Show>
             </div>
-          </Show>
+            <div class="modal-backdrop" onClick={closeModal} />
+          </div>
+        </Show>
+      }
+    >
+      {/* Tabs */}
+      <div class="mb-6">
+        <div role="tablist" class="tabs tabs-boxed bg-base-200 w-full p-1 sm:w-auto">
+          <button
+            type="button"
+            role="tab"
+            class={`tab flex-1 gap-2 sm:flex-none ${activeTab() === 'trackers' ? 'tab-active' : ''}`}
+            onClick={() =>
+              setSearchParams({
+                tab: 'trackers',
+                action: undefined,
+                id: undefined,
+                t_cursor: undefined,
+                t_cursorStack: undefined,
+                t_archivedCursor: undefined,
+                t_archivedCursorStack: undefined,
+              })
+            }
+            >
+            <Target size={18} class="hidden sm:inline" />
+            <span>Trackers</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class={`tab flex-1 gap-2 sm:flex-none ${activeTab() === 'groups' ? 'tab-active' : ''}`}
+            onClick={() =>
+              setSearchParams({
+                tab: 'groups',
+                action: undefined,
+                id: undefined,
+                g_cursor: undefined,
+                g_cursorStack: undefined,
+                g_archivedCursor: undefined,
+                g_archivedCursorStack: undefined,
+              })
+            }
+            >
+            <FolderTree size={18} class="hidden sm:inline" />
+            <span>Groups</span>
+          </button>
+        </div>
+      </div>
 
-          {/* Trackers Tab */}
-          <Show when={!loading() && activeTab() === 'trackers'}>
+      {/* Content */}
+      <div class="space-y-6">
+        {/* Loading State */}
+        <Show when={loading()}>
+          <div class="flex items-center justify-center py-20">
+            <span class="loading loading-spinner loading-lg text-primary"></span>
+          </div>
+        </Show>
+
+        {/* Trackers Tab */}
+        <Show when={!loading() && activeTab() === 'trackers'}>
             <TrackerList
-              trackers={trackers()}
-              groups={groups()}
               searchTrackers={searchTrackers}
+              revision={trackerRevision()}
               onEdit={handleEditTrackerClick}
               onDelete={handleDeleteTracker}
               onTogglePin={handleToggleTrackerPin}
               onToggleArchive={handleToggleTrackerArchive}
             />
-          </Show>
+        </Show>
 
-          {/* Groups Tab */}
-          <Show when={!loading() && activeTab() === 'groups'}>
-            <GroupList
-              groups={groups()}
-              searchGroups={searchGroups}
-              onEdit={handleEditGroupClick}
-              onDelete={handleDeleteGroup}
-              onToggleArchive={handleToggleGroupArchive}
-            />
-          </Show>
-        </div>
+        {/* Groups Tab */}
+        <Show when={!loading() && activeTab() === 'groups'}>
+          <GroupList
+            revision={groupRevision()}
+            searchGroups={searchGroups}
+            archived={false}
+            onEdit={handleEditGroupClick}
+            onDelete={handleDeleteGroup}
+            onToggleArchive={handleToggleGroupArchive}
+          />
+        </Show>
       </div>
-
-      {/* Floating Action Button */}
-      <Show when={activeTab() === 'trackers'}>
-        <button
-          class="btn btn-primary btn-circle btn-lg hover:shadow-3xl fixed right-6 z-40 shadow-2xl transition-all hover:scale-110 sm:right-8 fab-quickadd-offset"
-          onClick={() => setSearchParams({ create: 'tracker' })}
-          title="New Tracker"
-        >
-          <Plus size={28} />
-        </button>
-      </Show>
-
-      <Show when={activeTab() === 'groups'}>
-        <button
-          class="btn btn-primary btn-circle btn-lg hover:shadow-3xl fixed right-6 z-40 shadow-2xl transition-all hover:scale-110 sm:right-8 fab-quickadd-offset"
-          onClick={() => setSearchParams({ create: 'group' })}
-          title="New Group"
-        >
-          <Plus size={28} />
-        </button>
-      </Show>
-
-      {/* Modal */}
-      <Show when={showModal()}>
-        <div class="modal modal-open backdrop-blur-sm">
-          <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-4xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
-            <Show when={createType() === 'tracker'}>
-              <TrackerFormV2
-                groups={groups()}
-                onSubmit={handleCreateTracker}
-                onCancel={closeModal}
-              />
-            </Show>
-            <Show when={editType() === 'tracker' && editingTracker()}>
-              <TrackerFormV2
-                groups={groups()}
-                onSubmit={handleEditTracker}
-                onCancel={closeModal}
-                initialData={editingTracker()}
-              />
-            </Show>
-            <Show when={createType() === 'group'}>
-              <GroupFormV2 groups={groups()} onSubmit={handleCreateGroup} onCancel={closeModal} />
-            </Show>
-            <Show when={editType() === 'group' && editingGroup()}>
-              <GroupFormV2
-                groups={groups()}
-                onSubmit={handleEditGroup}
-                onCancel={closeModal}
-                initialData={editingGroup()}
-              />
-            </Show>
-          </div>
-          <div class="modal-backdrop" onClick={closeModal} />
-        </div>
-      </Show>
-    </div>
+    </PageShell>
   );
 }

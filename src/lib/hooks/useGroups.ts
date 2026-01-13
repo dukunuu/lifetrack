@@ -3,15 +3,32 @@ import type { Group, PagedResult } from '../db/types';
 import type { GroupSearchOptions } from '../repositories';
 import { groupRepo } from '../repositories';
 
-export function useGroups() {
+export interface UseGroupsOptions {
+  load?: 'all' | 'active' | 'trackers' | 'none';
+}
+
+export function useGroups(options: UseGroupsOptions = { load: 'all' }) {
   const [groups, setGroups] = createSignal<Group[]>([]);
-  const [loading, setLoading] = createSignal(true);
+  const [loading, setLoading] = createSignal(options.load !== 'none');
   const [error, setError] = createSignal<Error | null>(null);
+  const [revision, setRevision] = createSignal(0);
 
   const loadGroups = async () => {
+    if (options.load === 'none') {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const result = await groupRepo.findAll();
+      let result: Group[] = [];
+      if (options.load === 'active') {
+        result = await groupRepo.findActive();
+      } else if (options.load === 'trackers') {
+        result = await groupRepo.findGroupsForTrackers();
+      } else {
+        result = await groupRepo.findAll();
+      }
       setGroups(result);
       setError(null);
     } catch (err) {
@@ -25,7 +42,10 @@ export function useGroups() {
     await loadGroups();
 
     const unsubscribe = groupRepo.onChange(() => {
-      loadGroups();
+      setRevision((value) => value + 1);
+      if (options.load !== 'none') {
+        loadGroups();
+      }
     });
 
     onCleanup(unsubscribe);
@@ -34,6 +54,7 @@ export function useGroups() {
   const createGroup = async (data: Omit<Group, '_id' | '_rev' | 'createdAt' | 'updatedAt'>) => {
     try {
       const group = await groupRepo.create(data);
+      setRevision((value) => value + 1);
       return group;
     } catch (err) {
       setError(err as Error);
@@ -44,6 +65,7 @@ export function useGroups() {
   const updateGroup = async (id: string, data: Partial<Omit<Group, '_id' | '_rev'>>) => {
     try {
       const group = await groupRepo.update(id, data);
+      setRevision((value) => value + 1);
       return group;
     } catch (err) {
       setError(err as Error);
@@ -54,24 +76,43 @@ export function useGroups() {
   const deleteGroup = async (id: string) => {
     try {
       await groupRepo.delete(id);
+      setRevision((value) => value + 1);
     } catch (err) {
       setError(err as Error);
       throw err;
     }
   };
 
-  const findRoots = async () => {
+  const findById = async (id: string) => {
     try {
-      return await groupRepo.findRoots();
+      return await groupRepo.findById(id);
     } catch (err) {
       setError(err as Error);
       throw err;
     }
   };
 
-  const findChildren = async (groupId: string) => {
+  const groupHasChildren = async (id: string) => {
     try {
-      return await groupRepo.findChildren(groupId);
+      return await groupRepo.hasChildren(id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  }
+
+  const findActive = async () => {
+    try {
+      return await groupRepo.findActive();
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const findGroupsForTrackers = async () => {
+    try {
+      return await groupRepo.findGroupsForTrackers();
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -87,16 +128,29 @@ export function useGroups() {
     }
   };
 
+  const findDescendants = async (id: string) => {
+    try {
+      return await groupRepo.findDescendants(id)
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  }
+
   return {
     groups,
     loading,
     error,
     createGroup,
+    groupHasChildren,
     updateGroup,
     deleteGroup,
-    findRoots,
-    findChildren,
+    findActive,
+    findById,
+    findGroupsForTrackers,
+    findDescendants,
     searchGroups,
     refresh: loadGroups,
+    revision,
   };
 }

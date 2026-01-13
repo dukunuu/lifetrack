@@ -105,9 +105,9 @@ export default function FieldBuilder(props: FieldBuilderProps) {
                   <div class="card-body space-y-4 p-6">
                   {/* Header with actions */}
                   <div class="flex items-center justify-between">
-                    <span class="badge badge-primary badge-lg gap-2">
-                      <span class="font-semibold">Field {index + 1}</span>
-                      {field().label && <span class="opacity-80">· {field().label}</span>}
+                    <span class="badge badge-primary badge-lg gap-2 sm:text-base text-sm max-w-36">
+                      <span class="font-semibold text-nowrap hidden">Field {index + 1}·</span>
+                      {field().label && <span class="opacity-80 truncate"> {field().label}</span>}
                     </span>
                     <div class="flex gap-1">
                       <button

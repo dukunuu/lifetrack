@@ -1,44 +1,59 @@
 import { For, Show, createMemo, createResource } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import type { Group, PagedResult, Tracker } from '../../lib/db/types';
-import { Pin, Archive, Trash2, Edit, Tag, Search, Filter, X, Hash } from 'lucide-solid';
+import { Search, Filter, X } from 'lucide-solid';
 import PaginationControls from '../common/PaginationControls';
 import SearchInput from '../common/SearchInput';
 import type { TrackerSearchOptions } from '../../lib/repositories';
+import { useSearchCursorPagination } from '../../lib/hooks/useSearchPagination';
+import CardList from '../common/CardList';
+import TrackerCard from './TrackerCard';
+import { ITEMS_PER_PAGE } from '../../lib/constants/pagination';
+import { useGroups } from '../../lib/hooks/useGroups';
 
 interface TrackerListProps {
-  trackers: Tracker[];
-  groups: Group[];
   searchTrackers: (options?: TrackerSearchOptions) => Promise<PagedResult<Tracker>>;
+  revision?: number;
   onEdit?: (tracker: Tracker) => void;
   onDelete?: (tracker: Tracker) => void;
   onTogglePin?: (tracker: Tracker) => void;
   onToggleArchive?: (tracker: Tracker) => void;
 }
 
-const ITEMS_PER_PAGE = 10;
-
 export default function TrackerList(props: TrackerListProps) {
+  const { groups } = useGroups({ load: 'trackers' });
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const parsePage = (value: unknown) => {
-    const page = Number(value);
-    return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
-  };
 
   const parseGroupIds = (value: unknown) => {
     if (typeof value !== 'string' || !value.trim()) return [];
     return value.split(',').map((item) => item.trim()).filter(Boolean);
   };
 
-  const searchQuery = createMemo(() => (typeof searchParams.t_q === 'string' ? searchParams.t_q : ''));
+  const {
+    searchQuery,
+    activeCursor,
+    archivedCursor,
+    activeCursorStack,
+    archivedCursorStack,
+    handleSearch,
+    handleActiveNext,
+    handleActivePrev,
+    handleArchivedNext,
+    handleArchivedPrev,
+    resetCursors,
+    watchEmptyPages,
+  } = useSearchCursorPagination({
+    queryKey: 't_q',
+    cursorKey: 't_cursor',
+    cursorStackKey: 't_cursorStack',
+    archivedCursorKey: 't_archivedCursor',
+    archivedCursorStackKey: 't_archivedCursorStack',
+  });
   const selectedGroupIds = createMemo(() => new Set(parseGroupIds(searchParams.t_groups)));
-  const activePage = createMemo(() => parsePage(searchParams.t_page));
-  const archivedPage = createMemo(() => parsePage(searchParams.t_archivedPage));
 
   const groupsMap = createMemo(() => {
     const map = new Map<string, Group>();
-    props.groups.forEach((g) => map.set(g._id, g));
+    groups().forEach((g) => map.set(g._id, g));
     return map;
   });
 
@@ -50,9 +65,6 @@ export default function TrackerList(props: TrackerListProps) {
     return groupsMap().get(groupId)?.color;
   };
 
-  const activeTrackers = createMemo(() => props.trackers.filter((t) => !t.archived));
-  const archivedTrackers = createMemo(() => props.trackers.filter((t) => t.archived));
-
   const toggleGroupFilter = (groupId: string) => {
     const current = new Set(selectedGroupIds());
     if (current.has(groupId)) {
@@ -62,94 +74,81 @@ export default function TrackerList(props: TrackerListProps) {
     }
     setSearchParams({
       t_groups: current.size > 0 ? Array.from(current).join(',') : undefined,
-      t_page: undefined,
-      t_archivedPage: undefined,
     });
+    resetCursors();
   };
 
   const clearGroupFilter = () => {
     setSearchParams({
       t_groups: undefined,
-      t_page: undefined,
-      t_archivedPage: undefined,
     });
+    resetCursors();
   };
 
   const [activeSearchResults] = createResource(
     () => ({
       query: searchQuery(),
-      page: activePage(),
+      cursor: activeCursor(),
       perPage: ITEMS_PER_PAGE,
       archived: false,
       groupIds: Array.from(selectedGroupIds()),
-      revision: props.trackers,
+      revision: props.revision,
     }),
     (source) =>
       props.searchTrackers({
         query: source.query,
-        page: source.page,
+        cursor: source.cursor,
         perPage: source.perPage,
         archived: source.archived,
         groupIds: source.groupIds,
       }),
     {
-      initialValue: { items: [], total: 0, page: 1, perPage: ITEMS_PER_PAGE },
+      initialValue: { items: [], perPage: ITEMS_PER_PAGE },
     },
   );
 
   const [archivedSearchResults] = createResource(
     () => ({
       query: searchQuery(),
-      page: archivedPage(),
+      cursor: archivedCursor(),
       perPage: ITEMS_PER_PAGE,
       archived: true,
       groupIds: Array.from(selectedGroupIds()),
-      revision: props.trackers,
+      revision: props.revision,
     }),
     (source) =>
       props.searchTrackers({
         query: source.query,
-        page: source.page,
+        cursor: source.cursor,
         perPage: source.perPage,
         archived: source.archived,
         groupIds: source.groupIds,
       }),
     {
-      initialValue: { items: [], total: 0, page: 1, perPage: ITEMS_PER_PAGE },
+      initialValue: { items: [], perPage: ITEMS_PER_PAGE },
     },
   );
 
   const paginatedActiveTrackers = createMemo(() => activeSearchResults().items);
   const paginatedArchivedTrackers = createMemo(() => archivedSearchResults().items);
 
-  const activeTotalPages = createMemo(() =>
-    Math.ceil(activeSearchResults().total / ITEMS_PER_PAGE),
+  const activeResultTotal = createMemo(
+    () => activeSearchResults().total ?? paginatedActiveTrackers().length,
   );
-
-  const archivedTotalPages = createMemo(() =>
-    Math.ceil(archivedSearchResults().total / ITEMS_PER_PAGE),
+  const archivedResultTotal = createMemo(
+    () => archivedSearchResults().total ?? paginatedArchivedTrackers().length,
   );
+  const activeHasTotal = createMemo(() => activeSearchResults().total !== undefined);
 
-  const activeResultTotal = createMemo(() => activeSearchResults().total);
-  const archivedResultTotal = createMemo(() => archivedSearchResults().total);
+  const activeHasPrev = createMemo(() => activeCursorStack().length > 0);
+  const archivedHasPrev = createMemo(() => archivedCursorStack().length > 0);
+  const activeHasNext = createMemo(() => Boolean(activeSearchResults().nextCursor));
+  const archivedHasNext = createMemo(() => Boolean(archivedSearchResults().nextCursor));
 
-  // Reset page when search changes
-  const handleSearch = (value: string) => {
-    const trimmed = value.trim();
-    setSearchParams({
-      t_q: trimmed ? value : undefined,
-      t_page: undefined,
-      t_archivedPage: undefined,
-    });
-  };
-
-  const handleActivePageChange = (page: number) => {
-    setSearchParams({ t_page: page > 1 ? String(page) : undefined });
-  };
-
-  const handleArchivedPageChange = (page: number) => {
-    setSearchParams({ t_archivedPage: page > 1 ? String(page) : undefined });
-  };
+  watchEmptyPages(
+    () => paginatedActiveTrackers().length,
+    () => paginatedArchivedTrackers().length,
+  );
 
   return (
     <div class="space-y-6">
@@ -168,7 +167,7 @@ export default function TrackerList(props: TrackerListProps) {
             <Filter size={16} />
             <span>Filter by group:</span>
           </div>
-          <For each={props.groups.filter((g) => !g.archived)}>
+          <For each={groups()}>
             {(group) => (
               <button
                 onClick={() => toggleGroupFilter(group._id)}
@@ -204,7 +203,9 @@ export default function TrackerList(props: TrackerListProps) {
           <h3 class="text-xl font-bold">Active Trackers</h3>
           <Show when={searchQuery() || selectedGroupIds().size > 0}>
             <span class="text-base-content/60 text-sm tabular-nums">
-              {activeResultTotal()} result{activeResultTotal() !== 1 ? 's' : ''}
+              <Show when={activeHasTotal()} fallback={<>Showing {paginatedActiveTrackers().length}</>}>
+                {activeResultTotal()} result{activeResultTotal() !== 1 ? 's' : ''}
+              </Show>
               <Show when={selectedGroupIds().size > 0}>
                 <span class="ml-2">
                   ({selectedGroupIds().size} group{selectedGroupIds().size !== 1 ? 's' : ''})
@@ -214,7 +215,7 @@ export default function TrackerList(props: TrackerListProps) {
           </Show>
         </div>
         <Show
-          when={activeTrackers().length > 0}
+          when={activeResultTotal() > 0 || searchQuery() || selectedGroupIds().size > 0}
           fallback={
             <div class="text-base-content/50 py-8 text-center">
               No trackers yet. Create your first tracker above.
@@ -229,105 +230,32 @@ export default function TrackerList(props: TrackerListProps) {
               </div>
             }
           >
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <For each={paginatedActiveTrackers()}>
-                {(tracker, index) => (
-                  <div
-                    class="accent-card card bg-base-300/80 border-base-content/10 animate-fade-in-up border shadow-md transition-all duration-300 hover:shadow-xl"
-                    style={{
-                      'border-left': getGroupColor(tracker.groupId)
-                        ? `2px solid ${getGroupColor(tracker.groupId)}`
-                        : undefined,
-                      '--accent-color': getGroupColor(tracker.groupId) || 'oklch(var(--p))',
-                      'animation-delay': `${index() * 50}ms`,
-                    }}
-                  >
-                    <div class="card-body">
-                      <div class="flex items-start justify-between">
-                        <div class="flex items-center gap-2">
-                          <div class="bg-base-200 text-base-content/60 grid h-10 w-10 place-items-center rounded-xl">
-                            <Hash class="size-5" />
-                          </div>
-                          <div>
-                            <h4 class="card-title text-lg">{tracker.label}</h4>
-                            <div class="text-base-content/60 flex items-center gap-1 text-xs">
-                              <Tag size={12} />
-                              <span class="font-mono">{tracker.tag}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <Show when={tracker.pinned}>
-                          <Pin size={16} class="text-primary fill-current" />
-                        </Show>
-                      </div>
-
-                      <div class="mt-2 space-y-1 text-sm">
-                        <div>
-                          <span class="text-base-content/60">Group: </span>
-                          <span class="text-base-content/90">{getGroupName(tracker.groupId)}</span>
-                        </div>
-                        <div>
-                          <span class="text-base-content/60">Fields: </span>
-                          <span class="text-base-content/90 tabular-nums">
-                            {tracker.fields.length}
-                          </span>
-                        </div>
-                        <Show when={tracker.aliases && tracker.aliases.length > 0}>
-                          <div>
-                            <span class="text-base-content/60">Aliases: </span>
-                            <span class="text-base-content/90 font-mono text-xs">
-                              {tracker.aliases?.join(', ')}
-                            </span>
-                          </div>
-                        </Show>
-                      </div>
-
-                      <div class="card-actions border-base-content/5 mt-2 justify-end border-t pt-2">
-                        <button
-                          class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary transition-colors"
-                          onClick={() => props.onTogglePin?.(tracker)}
-                          title={tracker.pinned ? 'Unpin' : 'Pin'}
-                        >
-                          <Pin size={16} />
-                        </button>
-                        <button
-                          class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary transition-colors"
-                          onClick={() => props.onEdit?.(tracker)}
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          class="btn btn-ghost btn-sm hover:bg-warning/10 hover:text-warning transition-colors"
-                          onClick={() => props.onToggleArchive?.(tracker)}
-                          title="Archive"
-                        >
-                          <Archive size={16} />
-                        </button>
-                        <button
-                          class="btn btn-ghost btn-sm hover:bg-error/10 text-error transition-colors"
-                          onClick={() => props.onDelete?.(tracker)}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </For>
-            </div>
+            <CardList
+              items={paginatedActiveTrackers()}
+              CardComponent={TrackerCard}
+              getCardProps={(tracker, index) => ({
+                tracker,
+                index,
+                groupName: getGroupName(tracker.groupId),
+                groupColor: getGroupColor(tracker.groupId),
+                onEdit: props.onEdit,
+                onDelete: props.onDelete,
+                onTogglePin: props.onTogglePin,
+                onToggleArchive: props.onToggleArchive,
+              })}
+            />
             <PaginationControls
-              currentPage={activePage()}
-              totalPages={activeTotalPages()}
-              onPageChange={handleActivePageChange}
+              hasPrev={activeHasPrev()}
+              hasNext={activeHasNext()}
+              onPrev={handleActivePrev}
+              onNext={() => handleActiveNext(activeSearchResults().nextCursor)}
             />
           </Show>
         </Show>
       </div>
 
       {/* Archived Trackers */}
-      <Show when={archivedTrackers().length > 0}>
+      <Show when={archivedResultTotal() > 0}>
         <div>
           <div class="mb-4 flex items-center justify-between">
             <h3 class="text-xl font-bold">Archived Trackers</h3>
@@ -350,56 +278,22 @@ export default function TrackerList(props: TrackerListProps) {
               </div>
             }
           >
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <For each={paginatedArchivedTrackers()}>
-                {(tracker, index) => (
-                  <div
-                    class="card bg-base-300/40 border-base-content/5 animate-fade-in-up border opacity-60 shadow-sm transition-all duration-300 hover:opacity-80"
-                    style={{
-                      'animation-delay': `${index() * 50}ms`,
-                    }}
-                  >
-                    <div class="card-body">
-                      <div class="flex items-start justify-between">
-                        <div class="flex items-center gap-2">
-                          <div class="bg-base-200 text-base-content/60 grid h-10 w-10 place-items-center rounded-xl">
-                            <Hash class="size-5" />
-                          </div>
-                          <div>
-                            <h4 class="card-title text-lg">{tracker.label}</h4>
-                            <div class="text-base-content/60 flex items-center gap-1 text-xs">
-                              <Tag size={12} />
-                              <span class="font-mono">{tracker.tag}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="card-actions border-base-content/5 mt-2 justify-end border-t pt-2">
-                        <button
-                          class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary transition-colors"
-                          onClick={() => props.onToggleArchive?.(tracker)}
-                          title="Unarchive"
-                        >
-                          Unarchive
-                        </button>
-                        <button
-                          class="btn btn-ghost btn-sm hover:bg-error/10 text-error transition-colors"
-                          onClick={() => props.onDelete?.(tracker)}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </For>
-            </div>
+            <CardList
+              items={paginatedArchivedTrackers()}
+              CardComponent={TrackerCard}
+              getCardProps={(tracker, index) => ({
+                tracker,
+                index,
+                variant: 'archived' as const,
+                onDelete: props.onDelete,
+                onToggleArchive: props.onToggleArchive,
+              })}
+            />
             <PaginationControls
-              currentPage={archivedPage()}
-              totalPages={archivedTotalPages()}
-              onPageChange={handleArchivedPageChange}
+              hasPrev={archivedHasPrev()}
+              hasNext={archivedHasNext()}
+              onPrev={handleArchivedPrev}
+              onNext={() => handleArchivedNext(archivedSearchResults().nextCursor)}
             />
           </Show>
         </div>

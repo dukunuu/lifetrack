@@ -6,6 +6,7 @@ import { useTrackers } from '../lib/hooks/useTrackers';
 import { useEntriesAll } from '../lib/hooks/useEntriesAll';
 import GoalFormV2 from '../components/goals/GoalFormV2';
 import GoalList from '../components/goals/GoalList';
+import PageShell from '../components/layout/PageShell';
 import type { Goal } from '../lib/db/types';
 import { Plus } from 'lucide-solid';
 
@@ -13,7 +14,7 @@ export default function Goals() {
   const { goals, loading: goalsLoading, createGoal, updateGoal, deleteGoal, searchGoals } =
     useGoals();
   const { groups, loading: groupsLoading } = useGroups();
-  const { trackers, loading: trackersLoading } = useTrackers();
+  const { trackers, loading: trackersLoading } = useTrackers({ loadAll: true });
   const { entries, loading: entriesLoading } = useEntriesAll();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -70,70 +71,60 @@ export default function Goals() {
   const loading = () => goalsLoading() || groupsLoading() || trackersLoading() || entriesLoading();
 
   return (
-    <div class="bg-base-100 min-h-screen">
-      <div class="container mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <div class="mb-6 sm:mb-8">
-          <h1 class="from-primary to-secondary mb-2 bg-gradient-to-r bg-clip-text text-3xl font-bold text-transparent sm:text-4xl">
-            Goals
-          </h1>
-          <p class="text-base-content/70 text-base sm:text-lg">
-            Track progress across trackers or entire groups
-          </p>
-        </div>
-
-        <Show when={loading()}>
-          <div class="flex items-center justify-center py-20">
-            <span class="loading loading-spinner loading-lg text-primary"></span>
+    <PageShell
+      title="Goals"
+      subtitle="Track progress across trackers or entire groups"
+      fab={{
+        label: 'New Goal',
+        icon: <Plus size={28} />,
+        onClick: () => setSearchParams({ create: 'goal' }),
+      }}
+      after={
+        <Show when={showModal()}>
+          <div class="modal modal-open backdrop-blur-sm">
+            <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-5xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
+              <Show when={createType() === 'goal'}>
+                <GoalFormV2
+                  groups={groups()}
+                  trackers={trackers()}
+                  onSubmit={handleCreateGoal}
+                  onCancel={closeModal}
+                />
+              </Show>
+              <Show when={editingGoal()}>
+                <GoalFormV2
+                  groups={groups()}
+                  trackers={trackers()}
+                  onSubmit={handleEditGoal}
+                  onCancel={closeModal}
+                  initialData={editingGoal()}
+                />
+              </Show>
+            </div>
+            <div class="modal-backdrop" onClick={closeModal} />
           </div>
         </Show>
-
-        <Show when={!loading()}>
-          <GoalList
-            goals={goals()}
-            groups={groups()}
-            trackers={trackers()}
-            entries={entries()}
-            searchGoals={searchGoals}
-            onEdit={(goal) => setSearchParams({ edit: goal._id })}
-            onDelete={handleDeleteGoal}
-            onToggleArchive={handleToggleArchive}
-            onTogglePin={handleTogglePin}
-          />
-        </Show>
-      </div>
-
-      <button
-        class="btn btn-primary btn-circle btn-lg hover:shadow-3xl fixed right-6 z-40 shadow-2xl transition-all hover:scale-110 sm:right-8 fab-quickadd-offset"
-        onClick={() => setSearchParams({ create: 'goal' })}
-        title="New Goal"
-      >
-        <Plus size={28} />
-      </button>
-
-      <Show when={showModal()}>
-        <div class="modal modal-open backdrop-blur-sm">
-          <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-5xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
-            <Show when={createType() === 'goal'}>
-              <GoalFormV2
-                groups={groups()}
-                trackers={trackers()}
-                onSubmit={handleCreateGoal}
-                onCancel={closeModal}
-              />
-            </Show>
-            <Show when={editingGoal()}>
-              <GoalFormV2
-                groups={groups()}
-                trackers={trackers()}
-                onSubmit={handleEditGoal}
-                onCancel={closeModal}
-                initialData={editingGoal()}
-              />
-            </Show>
-          </div>
-          <div class="modal-backdrop" onClick={closeModal} />
+      }
+    >
+      <Show when={loading()}>
+        <div class="flex items-center justify-center py-20">
+          <span class="loading loading-spinner loading-lg text-primary"></span>
         </div>
       </Show>
-    </div>
+
+      <Show when={!loading()}>
+        <GoalList
+          goals={goals()}
+          groups={groups()}
+          trackers={trackers()}
+          entries={entries()}
+          searchGoals={searchGoals}
+          onEdit={(goal) => setSearchParams({ edit: goal._id })}
+          onDelete={handleDeleteGoal}
+          onToggleArchive={handleToggleArchive}
+          onTogglePin={handleTogglePin}
+        />
+      </Show>
+    </PageShell>
   );
 }

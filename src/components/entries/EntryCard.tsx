@@ -1,7 +1,8 @@
-import { Show, For } from 'solid-js';
+import { Show, For, createSignal, onCleanup } from 'solid-js';
 import { Clock, Hash, Check, X, FileText } from 'lucide-solid';
 import ImagePreview from '../common/ImagePreview';
-import type { Entry, Tracker, Group, FieldDefinition } from '../../lib/db/types';
+import type { Entry, Tracker, Group, FieldDefinition, PhotoValue } from '../../lib/db/types';
+import { entryRepo } from '../../lib/repositories';
 
 interface EntryCardProps {
   entry: Entry;
@@ -59,6 +60,53 @@ export default function EntryCard(props: EntryCardProps) {
     return unit ? `${baseValue} ${unit}` : baseValue;
   };
 
+  const isPhotoValue = (value: unknown): value is PhotoValue =>
+    typeof value === 'object' && value !== null && 'mediaId' in value;
+
+  const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+
+  const createAttachmentUrl = async (mediaId: string) => {
+    const blob = await entryRepo.getMediaAttachment(mediaId);
+    if (!blob) {
+      throw new Error('Attachment not found.');
+    }
+    return URL.createObjectURL(blob);
+  };
+
+  const AttachmentPreview = (attachment: { value: PhotoValue; alt: string }) => {
+    const [objectUrl, setObjectUrl] = createSignal<string | null>(null);
+
+    const handleRequestFull = async () => {
+      if (objectUrl()) return objectUrl() as string;
+      const nextUrl = await createAttachmentUrl(attachment.value.mediaId);
+      setObjectUrl(nextUrl);
+      return nextUrl;
+    };
+
+    const handleCleanup = (src: string) => {
+      if (objectUrl() === src) {
+        URL.revokeObjectURL(src);
+        setObjectUrl(null);
+      }
+    };
+
+    onCleanup(() => {
+      const current = objectUrl();
+      if (current) URL.revokeObjectURL(current);
+    });
+
+    return (
+      <ImagePreview
+        src={attachment.value.thumbnail ?? transparentPixel}
+        alt={attachment.alt}
+        class="h-24 w-full object-cover"
+        loading="lazy"
+        onRequestFull={handleRequestFull}
+        onFullSrcCleanup={handleCleanup}
+      />
+    );
+  };
+
   return (
     <div
       class="accent-card card bg-base-200/70 border-base-300/70 group border shadow-md transition-all duration-300 hover:shadow-lg"
@@ -96,7 +144,7 @@ export default function EntryCard(props: EntryCardProps) {
               tracker?.fields.forEach((field) => fieldMap.set(field.name, field));
               const photoEntries = Object.entries(data.values).filter(
                 ([fieldName, value]) =>
-                  fieldMap.get(fieldName)?.type === 'photo' && typeof value === 'string',
+                  fieldMap.get(fieldName)?.type === 'photo' && value !== null,
               );
               const textEntries = Object.entries(data.values).filter(
                 ([fieldName, value]) => fieldMap.get(fieldName)?.type !== 'photo' && value !== null,
@@ -168,16 +216,27 @@ export default function EntryCard(props: EntryCardProps) {
                   <Show when={photoEntries.length > 0}>
                     <div class="mt-3 grid grid-cols-3 gap-2">
                       <For each={photoEntries}>
-                        {([fieldName, value]) => (
-                          <div class="border-base-300/60 overflow-hidden rounded-lg border">
-                            <ImagePreview
-                              src={value as string}
-                              alt={`${tracker?.label || data.trackerTag} ${fieldName}`}
-                              class="h-24 w-full object-cover"
-                              loading="lazy"
-                            />
-                          </div>
-                        )}
+                        {([fieldName, value]) => {
+                          const alt = `${tracker?.label || data.trackerTag} ${fieldName}`;
+                          if (typeof value === 'string') {
+                            return (
+                              <div class="border-base-300/60 overflow-hidden rounded-lg border">
+                                <ImagePreview
+                                  src={value}
+                                  alt={alt}
+                                  class="h-24 w-full object-cover"
+                                  loading="lazy"
+                                />
+                              </div>
+                            );
+                          }
+                          if (!isPhotoValue(value)) return null;
+                          return (
+                            <div class="border-base-300/60 overflow-hidden rounded-lg border">
+                              <AttachmentPreview value={value} alt={alt} />
+                            </div>
+                          );
+                        }}
                       </For>
                     </div>
                   </Show>

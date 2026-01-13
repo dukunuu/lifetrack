@@ -12,7 +12,7 @@ import { computeGoalProgress } from '../lib/services/goal-progress';
 export default function Home() {
   const { goals } = useGoals();
   const { groups } = useGroups();
-  const { trackers } = useTrackers();
+  const { trackers } = useTrackers({ loadAll: true });
   const { entries } = useEntriesAll();
 
   const formatNumber = (value: number) => {

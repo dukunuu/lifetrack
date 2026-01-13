@@ -137,7 +137,7 @@ export default function HistoryCalendar() {
   const { goals } = useGoals();
   const { groups } = useGroups();
   const { sessions } = useSessions();
-  const { trackers } = useTrackers();
+  const { trackers } = useTrackers({ loadAll: true });
   const { settings } = useSettings();
   const [view, setView] = createSignal<ViewMode>('day');
   const [anchorDate, setAnchorDate] = createSignal(atUtcMidnight(new Date()));
