@@ -53,7 +53,6 @@ export class GoalRepository extends BaseRepository<Goal> {
     return super.create(goalData);
   }
 
-
   async searchPaged(options: GoalSearchOptions = {}): Promise<PagedResult<Goal>> {
     const query = options.query?.trim() ?? '';
     const cursor = options.cursor;
@@ -98,11 +97,7 @@ export class GoalRepository extends BaseRepository<Goal> {
 
     if (options.period) {
       selector = {
-        $and: [
-          idSelector,
-          { archived },
-          { period: options.period },
-        ],
+        $and: [idSelector, { archived }, { period: options.period }],
       };
     }
 
@@ -120,7 +115,6 @@ export class GoalRepository extends BaseRepository<Goal> {
     return { items, perPage, nextCursor };
   }
 
-
   async update(id: string, data: Partial<Omit<Goal, '_id' | '_rev'>>): Promise<Goal> {
     const existing = await this.findById(id);
     if (!existing) {
@@ -133,6 +127,10 @@ export class GoalRepository extends BaseRepository<Goal> {
     const goalSearchTokens = buildSearchTokens(nextName, nextDescription, nextTargetUnit);
 
     return super.update(id, { ...data, goalSearchTokens });
+  }
+
+  async findPinnedGoals(): Promise<Goal[]> {
+    return [];
   }
 
   private async ensureSearchTokens(): Promise<void> {

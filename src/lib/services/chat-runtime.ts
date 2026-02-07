@@ -129,7 +129,10 @@ const buildTrackerContext = async (imageAvailable: boolean) => {
   ].join('\n');
 };
 
-const describeTrackerFields = (tag: string, trackerFields: Array<{ label: string; unit?: string; type: string }>) => {
+const describeTrackerFields = (
+  tag: string,
+  trackerFields: Array<{ label: string; unit?: string; type: string }>,
+) => {
   const ordered = trackerFields.map((field, index) => {
     const unit = field.unit ? ` (${field.unit})` : '';
     return `${index + 1}) ${field.label}${unit} [${field.type}]`;
@@ -154,7 +157,8 @@ const validateQuickAdd = async (command: string) => {
       }));
     return {
       ok: false as const,
-      message: `${describeTrackerFields(tracker.tag, fields)} ${parsed.errors[0]?.message ?? ''}`.trim(),
+      message:
+        `${describeTrackerFields(tracker.tag, fields)} ${parsed.errors[0]?.message ?? ''}`.trim(),
     };
   }
 
@@ -243,11 +247,7 @@ export const runChatTurn = async (
     provider,
     apiKey,
     model,
-    messages: [
-      createChatMessage('system', trackerContext),
-      ...previousMessages,
-      userMessage,
-    ],
+    messages: [createChatMessage('system', trackerContext), ...previousMessages, userMessage],
   });
 
   if (decision.reply) {
@@ -269,10 +269,7 @@ export const runChatTurn = async (
           createChatMessage('assistant', `Running command: ${decision.command}`),
         );
         const results = await runSearch(query, settings);
-        await sessionRepo.appendChatMessage(
-          session._id,
-          createChatMessage('assistant', results),
-        );
+        await sessionRepo.appendChatMessage(session._id, createChatMessage('assistant', results));
       } else if (decision.command.toLowerCase().startsWith('/image')) {
         const prompt = decision.command.replace(/^\/image\s*/i, '').trim();
         await sessionRepo.appendChatMessage(
@@ -369,11 +366,7 @@ export const runChatTurnStream = async (
     provider,
     apiKey,
     model,
-    messages: [
-      createChatMessage('system', trackerContext),
-      ...previousMessages,
-      userMessage,
-    ],
+    messages: [createChatMessage('system', trackerContext), ...previousMessages, userMessage],
   });
 
   if (!decision.command) {
@@ -383,11 +376,7 @@ export const runChatTurnStream = async (
         provider,
         apiKey,
         model,
-        messages: [
-          createChatMessage('system', trackerContext),
-          ...previousMessages,
-          userMessage,
-        ],
+        messages: [createChatMessage('system', trackerContext), ...previousMessages, userMessage],
       })) {
         reply += chunk;
         onToken(chunk);
@@ -432,10 +421,7 @@ export const runChatTurnStream = async (
           createChatMessage('assistant', `Running command: ${decision.command}`),
         );
         const results = await runSearch(query, settings);
-        await sessionRepo.appendChatMessage(
-          session._id,
-          createChatMessage('assistant', results),
-        );
+        await sessionRepo.appendChatMessage(session._id, createChatMessage('assistant', results));
       } else if (decision.command.toLowerCase().startsWith('/image')) {
         const prompt = decision.command.replace(/^\/image\s*/i, '').trim();
         await sessionRepo.appendChatMessage(

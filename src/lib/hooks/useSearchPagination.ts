@@ -30,7 +30,9 @@ export function useSearchCursorPagination(options: UseSearchPaginationOptions) {
   const activeCursor = createMemo(() => parseCursor(searchParams[options.cursorKey]));
   const archivedCursor = createMemo(() => parseCursor(searchParams[options.archivedCursorKey]));
   const activeCursorStack = createMemo(() => parseStack(searchParams[options.cursorStackKey]));
-  const archivedCursorStack = createMemo(() => parseStack(searchParams[options.archivedCursorStackKey]));
+  const archivedCursorStack = createMemo(() =>
+    parseStack(searchParams[options.archivedCursorStackKey]),
+  );
 
   const resetCursors = () => {
     setSearchParams({

@@ -1,7 +1,7 @@
-import { For, Show, createSignal, onMount } from 'solid-js';
-import { Cloud, Sparkles, Palette, SlidersHorizontal, Eye, EyeOff } from 'lucide-solid';
 import { useSearchParams } from '@solidjs/router';
-import { useSettings } from '../lib/hooks/useSettings';
+import { Cloud, Eye, EyeOff, Palette, RefreshCw, SlidersHorizontal, Sparkles } from 'lucide-solid';
+import { For, Show, createSignal, onMount } from 'solid-js';
+import { OPENROUTER_MODELS } from '../lib/constants/ai-models';
 import {
   ACTIVE_INDEX_NAMES,
   cleanupIndexes,
@@ -11,7 +11,8 @@ import {
   resolveConflicts,
   runMaintenance,
 } from '../lib/db';
-import { OPENROUTER_MODELS } from '../lib/constants/ai-models';
+import { useSettings } from '../lib/hooks/useSettings';
+import { useSync } from '../lib/hooks/useSync';
 
 const THEMES = [
   { id: 'lifetrack', label: 'Lifetrack (default)' },
@@ -23,6 +24,7 @@ const THEMES = [
 
 export default function Settings() {
   const { settings, setSettings, resetSettings } = useSettings();
+  const { status, resync } = useSync();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showSyncKey, setShowSyncKey] = createSignal(false);
   const [showSyncPassword, setShowSyncPassword] = createSignal(false);
@@ -37,6 +39,7 @@ export default function Settings() {
   const [storageUsage, setStorageUsage] = createSignal<number | null>(null);
   const [storageQuota, setStorageQuota] = createSignal<number | null>(null);
   const [storagePersisted, setStoragePersisted] = createSignal<boolean | null>(null);
+  const [resyncLoading, setResyncLoading] = createSignal(false);
 
   const updateSync = (
     field: 'enabled' | 'endpoint' | 'username' | 'password' | 'apiKey',
@@ -251,6 +254,18 @@ export default function Settings() {
     }
   };
 
+  const handleResync = async () => {
+    try {
+      setResyncLoading(true);
+      resync();
+    } catch (err) {
+      console.error('Resync failed:', err);
+      alert('Resync failed. Please check your sync settings and try again.');
+    } finally {
+      setResyncLoading(false);
+    }
+  };
+
   const formatBytes = (value: number | null) => {
     if (value === null) return 'Unknown';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -403,6 +418,43 @@ export default function Settings() {
                 </button>
               </div>
             </label>
+
+            <Show when={settings().sync.enabled}>
+              <div class="border-base-content/10 border-t pt-4">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <div class="text-base-content/70 text-sm font-semibold">Sync Status</div>
+                    <div class="text-base-content/50 text-xs" data-sync-status={status()}>
+                      {status() === 'idle' && 'Not connected'}
+                      {status() === 'connecting' && 'Connecting...'}
+                      {status() === 'active' && 'Syncing...'}
+                      {status() === 'paused' && 'Up to date'}
+                      {status() === 'error' && 'Connection error'}
+                      {status() === 'stalled' && 'Sync stalled'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    onClick={handleResync}
+                    disabled={resyncLoading()}
+                    data-action="resync"
+                  >
+                    <Show
+                      when={resyncLoading()}
+                      fallback={
+                        <>
+                          <RefreshCw class="mr-1 size-4" />
+                          Resync
+                        </>
+                      }
+                    >
+                      Syncing...
+                    </Show>
+                  </button>
+                </div>
+              </div>
+            </Show>
           </div>
         </section>
 
@@ -427,11 +479,7 @@ export default function Settings() {
                   {formatBytes(storageUsage())} used of {formatBytes(storageQuota())}
                 </div>
               </div>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                onClick={refreshStorageEstimate}
-              >
+              <button type="button" class="btn btn-ghost btn-sm" onClick={refreshStorageEstimate}>
                 Refresh
               </button>
             </div>
@@ -627,9 +675,7 @@ export default function Settings() {
             <div class="flex items-center justify-between gap-3">
               <div>
                 <div class="text-base-content/70 text-sm font-semibold">Reduce motion</div>
-                <div class="text-base-content/50 text-xs">
-                  Minimize animations and transitions.
-                </div>
+                <div class="text-base-content/50 text-xs">Minimize animations and transitions.</div>
               </div>
               <input
                 type="checkbox"
@@ -671,9 +717,7 @@ export default function Settings() {
                 class="select select-bordered w-full"
                 value={settings().appearance.defaultHistoryView}
                 onChange={(e) =>
-                  updateAppearanceHistoryView(
-                    e.currentTarget.value as 'day' | 'week' | 'month',
-                  )
+                  updateAppearanceHistoryView(e.currentTarget.value as 'day' | 'week' | 'month')
                 }
               >
                 <option value="day">Day</option>
@@ -694,17 +738,13 @@ export default function Settings() {
               <select
                 class="select select-bordered w-full"
                 value={settings().appearance.historyStartHour}
-                onChange={(e) =>
-                  updateAppearanceHistoryStartHour(Number(e.currentTarget.value))
-                }
+                onChange={(e) => updateAppearanceHistoryStartHour(Number(e.currentTarget.value))}
               >
                 <For each={Array.from({ length: 24 }, (_, hour) => hour)}>
                   {(hour) => <option value={hour}>{formatHourOption(hour)}</option>}
                 </For>
               </select>
-              <div class="text-base-content/50 mt-2 text-xs">
-                Applies to day and week grids.
-              </div>
+              <div class="text-base-content/50 mt-2 text-xs">Applies to day and week grids.</div>
             </label>
           </div>
         </section>
@@ -792,7 +832,7 @@ export default function Settings() {
           <div class="modal-box bg-base-200 border-base-300 relative w-full max-w-2xl border">
             <button
               type="button"
-              class="btn btn-sm btn-circle absolute right-4 top-4"
+              class="btn btn-sm btn-circle absolute top-4 right-4"
               aria-label="Close help"
               onClick={closeHelp}
             >
@@ -801,7 +841,7 @@ export default function Settings() {
             <Show when={helpSection() === 'sync'}>
               <div class="space-y-4">
                 <h3 class="text-xl font-bold">Enable Sync</h3>
-                <ol class="list-decimal space-y-2 pl-5 text-sm text-base-content/80">
+                <ol class="text-base-content/80 list-decimal space-y-2 pl-5 text-sm">
                   <li>Deploy a CouchDB instance reachable from the browser (HTTPS recommended).</li>
                   <li>Configure CouchDB CORS to allow your frontend origin.</li>
                   <li>Create a per-user database and user credentials in CouchDB.</li>
@@ -811,7 +851,7 @@ export default function Settings() {
                     username, and password, then enable sync.
                   </li>
                 </ol>
-                <div class="text-xs text-base-content/60">
+                <div class="text-base-content/60 text-xs">
                   The endpoint should point directly to the user database.
                 </div>
               </div>
@@ -819,12 +859,12 @@ export default function Settings() {
             <Show when={helpSection() === 'ai'}>
               <div class="space-y-4">
                 <h3 class="text-xl font-bold">Enable AI Features</h3>
-                <ol class="list-decimal space-y-2 pl-5 text-sm text-base-content/80">
+                <ol class="text-base-content/80 list-decimal space-y-2 pl-5 text-sm">
                   <li>Create an OpenRouter API key.</li>
                   <li>In Settings {'->'} AI, enter the API key.</li>
                   <li>Select a model if needed.</li>
                 </ol>
-                <div class="text-xs text-base-content/60">
+                <div class="text-base-content/60 text-xs">
                   API keys are stored locally in your browser settings.
                 </div>
               </div>

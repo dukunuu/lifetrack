@@ -1,15 +1,18 @@
-import { createSignal, Show, For, onMount, onCleanup, createMemo } from 'solid-js';
-import type { Group } from '../../lib/db/types';
-import JsonEditor from '../common/JsonEditor';
-import EmojiPicker from '../common/EmojiPicker';
-import ColorPicker from '../common/ColorPicker';
-import FormHeader from '../common/FormHeader';
-import FormFooter from '../common/FormFooter';
-import FormErrorAlert from '../common/FormErrorAlert';
-import { groupSchema } from '../../lib/schemas/group.schema';
 import { Sparkles } from 'lucide-solid';
+import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import type { Group } from '../../lib/db/types';
 import { useAiJsonCompletion } from '../../lib/hooks/useAiJsonCompletion';
 import { useGroups } from '../../lib/hooks/useGroups';
+import { groupSchema } from '../../lib/schemas/group.schema';
+import ColorPicker from '../common/ColorPicker';
+import EmojiPicker from '../common/EmojiPicker';
+import FormErrorAlert from '../common/FormErrorAlert';
+import FormField from '../common/FormField';
+import FormFooter from '../common/FormFooter';
+import FormGrid from '../common/FormGrid';
+import FormHeader from '../common/FormHeader';
+import FormSection from '../common/FormSection';
+import JsonEditor from '../common/JsonEditor';
 
 interface GroupFormProps {
   onSubmit: (data: Omit<Group, '_id' | '_rev' | 'createdAt' | 'updatedAt'>) => Promise<void>;
@@ -92,18 +95,20 @@ export default function GroupFormV2(props: GroupFormProps) {
   const availableParents = createMemo(() => {
     const allGroups = groups();
     const editingGroup = props.initialData;
-  
+
     if (!editingGroup) {
       return allGroups;
     }
-  
-    return allGroups.filter((g) => {
-      const isSelf = g._id === editingGroup._id;
-  
-      const isDescendant = g.path.startsWith(`${editingGroup.path}/`);
-  
-      return !isSelf && !isDescendant;
-    }).sort((a,b) => a.depth - b.depth);
+
+    return allGroups
+      .filter((g) => {
+        const isSelf = g._id === editingGroup._id;
+
+        const isDescendant = g.path.startsWith(`${editingGroup.path}/`);
+
+        return !isSelf && !isDescendant;
+      })
+      .sort((a, b) => a.depth - b.depth);
   });
 
   // Keyboard shortcuts
@@ -118,7 +123,6 @@ export default function GroupFormV2(props: GroupFormProps) {
     document.addEventListener('keydown', handleKeyDown);
     onCleanup(() => document.removeEventListener('keydown', handleKeyDown));
   });
-
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -236,16 +240,13 @@ export default function GroupFormV2(props: GroupFormProps) {
           <Show when={mode() === 'form'}>
             <div class="space-y-8">
               {/* Basic Info Section */}
-              <div class="space-y-4">
-                <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                  Basic Information
-                </h3>
-
-                {/* Name */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">Name *</span>
-                  </label>
+              <FormSection title="Basic Information">
+                <FormField
+                  label="Name"
+                  required
+                  error={validationErrors().name}
+                  help="Display name for this group"
+                >
                   <input
                     type="text"
                     placeholder="e.g., Fitness, Meals, Finances"
@@ -262,23 +263,13 @@ export default function GroupFormV2(props: GroupFormProps) {
                         setValidationErrors(errors);
                       }
                     }}
-                    required
                   />
-                  <Show when={validationErrors().name}>
-                    <p class="text-error mt-1 text-xs">{validationErrors().name}</p>
-                  </Show>
-                  <Show when={!validationErrors().name}>
-                    <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                      Display name for this group
-                    </p>
-                  </Show>
-                </div>
+                </FormField>
 
-                {/* Slug */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">Slug</span>
-                  </label>
+                <FormField
+                  label="Slug"
+                  help="Auto-generated from name if empty. URL-safe identifier for this group"
+                >
                   <input
                     type="text"
                     placeholder="e.g., fitness"
@@ -286,83 +277,54 @@ export default function GroupFormV2(props: GroupFormProps) {
                     value={slug()}
                     onInput={(e) => setSlug(e.currentTarget.value)}
                   />
-                  <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                    Auto-generated from name if empty. URL-safe identifier for this group
-                  </p>
-                </div>
+                </FormField>
 
-                {/* Parent Group */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Parent Group
-                    </span>
-                  </label>
+                <FormField
+                  label="Parent Group"
+                  help="Optional. Groups can be nested to organize your trackers hierarchically"
+                >
                   <select
                     class="select select-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
                     value={parentId() || ''}
                     onChange={(e) => setParentId(e.currentTarget.value || null)}
                   >
-                    <option value="" selected={!parentId()}>None (Root Group)</option>
+                    <option value="" selected={!parentId()}>
+                      None (Root Group)
+                    </option>
                     <For each={availableParents()}>
                       {(group) => (
-                        <option 
-                          value={group._id} 
-                          selected={group._id === parentId()}
-                        >
-                          {/* Use \u00A0 (non-breaking space) for indentation */}
+                        <option value={group._id} selected={group._id === parentId()}>
                           {'\u00A0'.repeat(group.depth * 2)}
                           {group.name}
                         </option>
                       )}
                     </For>
                   </select>
-                  <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                    Optional. Groups can be nested to organize your trackers hierarchically
-                  </p>
-                </div>
+                </FormField>
 
-                {/* Description */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Description
-                    </span>
-                  </label>
+                <FormField
+                  label="Description"
+                  help="Optional description of what this group contains"
+                >
                   <textarea
                     class="textarea textarea-bordered bg-base-100 text-base-content h-24 w-full text-base"
                     placeholder="Describe what this group is for..."
                     value={description()}
                     onInput={(e) => setDescription(e.currentTarget.value)}
                   />
-                  <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                    Optional description of what this group contains
-                  </p>
-                </div>
-              </div>
+                </FormField>
+              </FormSection>
 
               {/* Appearance Section */}
-              <div class="space-y-4">
-                <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                  Appearance
-                </h3>
-
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {/* Icon */}
+              <FormSection title="Appearance">
+                <FormGrid cols={2}>
                   <EmojiPicker label="Icon" value={icon()} onChange={setIcon} />
-
-                  {/* Color */}
                   <ColorPicker label="Color" value={color()} onChange={setColor} />
-                </div>
-              </div>
+                </FormGrid>
+              </FormSection>
 
               {/* Settings Section */}
-              <div class="space-y-4">
-                <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                  Settings
-                </h3>
-
-                {/* Allows Trackers */}
+              <FormSection title="Settings">
                 <div class="form-control">
                   <label class="border-base-content/10 hover:border-primary/30 bg-base-200 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors">
                     <input
@@ -381,7 +343,7 @@ export default function GroupFormV2(props: GroupFormProps) {
                     </div>
                   </label>
                 </div>
-              </div>
+              </FormSection>
             </div>
           </Show>
 

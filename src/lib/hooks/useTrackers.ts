@@ -95,6 +95,15 @@ export function useTrackers(options: UseTrackersOptions = {}) {
     }
   };
 
+  const findByIds = async (ids: string[]) => {
+    try {
+      return await trackerRepo.findByIds(ids);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
   const searchTrackers = async (
     options: TrackerSearchOptions = {},
   ): Promise<PagedResult<Tracker>> => {
@@ -116,6 +125,7 @@ export function useTrackers(options: UseTrackersOptions = {}) {
     deleteTracker,
     findByGroupId,
     findById,
+    findByIds,
     searchTrackers,
     refresh: loadTrackers,
   };

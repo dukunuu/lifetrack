@@ -1,46 +1,84 @@
-import { Show, For, createSignal, onCleanup } from 'solid-js';
-import { Clock, Hash, Check, X, FileText } from 'lucide-solid';
-import ImagePreview from '../common/ImagePreview';
-import type { Entry, Tracker, Group, FieldDefinition, PhotoValue } from '../../lib/db/types';
+import { Check, Clock, FileText, Hash, X } from 'lucide-solid';
+import { For, Show, createResource, createSignal, onCleanup } from 'solid-js';
+import type { Entry, FieldDefinition, PhotoValue, Tracker } from '../../lib/db/types';
+import { useGroups } from '../../lib/hooks/useGroups';
+import { useTrackers } from '../../lib/hooks/useTrackers';
 import { entryRepo } from '../../lib/repositories';
+import ImagePreview from '../common/ImagePreview';
 
 interface EntryCardProps {
   entry: Entry;
-  trackerMap: Map<string, Tracker>;
-  groupMap: Map<string, Group>;
   onDelete?: (id: string) => void;
 }
 
 export default function EntryCard(props: EntryCardProps) {
+  const { findByIds: findGroupsByIds } = useGroups({ load: 'none' });
+  const { findByIds: findTrackersByIds } = useTrackers({ loadAll: false });
+
+  // Fetch trackers for this entry
+  const [trackerMap] = createResource(
+    () => props.entry,
+    async (entry) => {
+      const trackerIds = [...new Set(entry.data.map((d) => d.trackerId))];
+      if (trackerIds.length === 0) return new Map<string, Tracker>();
+      const trackers = await findTrackersByIds(trackerIds);
+      return new Map(trackers.map((t) => [t._id, t]));
+    },
+    { initialValue: new Map<string, Tracker>() },
+  );
+
+  // Fetch groups for the trackers
+  const [groupMap] = createResource(
+    () => trackerMap(),
+    async (map) => {
+      const groupIds = [
+        ...new Set(
+          Array.from(map.values())
+            .map((t) => t.groupId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      if (groupIds.length === 0)
+        return new Map<string, { color?: string; icon?: string; name?: string }>();
+      const groups = await findGroupsByIds(groupIds);
+      return new Map(groups.map((g) => [g._id, { color: g.color, icon: g.icon, name: g.name }]));
+    },
+    { initialValue: new Map<string, { color?: string; icon?: string; name?: string }>() },
+  );
+
   const getFieldUnit = (trackerId: string, fieldName: string): string | undefined => {
-    const tracker = props.trackerMap.get(trackerId);
+    const tracker = trackerMap().get(trackerId);
     return tracker?.fields.find((field) => field.name === fieldName)?.unit;
   };
 
-  const getGroup = (trackerId: string): Group | undefined => {
-    const tracker = props.trackerMap.get(trackerId);
-    return tracker ? props.groupMap.get(tracker.groupId) : undefined;
+  const getGroup = (trackerId: string) => {
+    const tracker = trackerMap().get(trackerId);
+    if (!tracker?.groupId) return undefined;
+    return groupMap().get(tracker.groupId);
   };
 
   const getGroupColor = (trackerId: string): string | undefined => {
     return getGroup(trackerId)?.color;
   };
 
-  const entryAccentColor = (() => {
+  const entryAccentColor = () => {
     for (const data of props.entry.data) {
       const color = getGroupColor(data.trackerId);
       if (color) return color;
     }
     return undefined;
-  })();
+  };
 
-  const cardStyle = entryAccentColor
-    ? {
-        borderColor: entryAccentColor,
-        boxShadow: `0 0 30px ${entryAccentColor}22`,
-        '--accent-color': entryAccentColor,
-      }
-    : undefined;
+  const cardStyle = () => {
+    const color = entryAccentColor();
+    return color
+      ? {
+          'border-color': color,
+          'box-shadow': `0 0 30px ${color}22`,
+          '--accent-color': color,
+        }
+      : undefined;
+  };
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -110,7 +148,7 @@ export default function EntryCard(props: EntryCardProps) {
   return (
     <div
       class="accent-card card bg-base-200/70 border-base-300/70 group border shadow-md transition-all duration-300 hover:shadow-lg"
-      style={cardStyle}
+      style={cardStyle()}
     >
       <div class="card-body p-4">
         {/* Header */}
@@ -135,32 +173,31 @@ export default function EntryCard(props: EntryCardProps) {
         <div class="space-y-3">
           <For each={props.entry.data}>
             {(data) => {
-              const tracker = props.trackerMap.get(data.trackerId);
-              const group = tracker ? props.groupMap.get(tracker.groupId) : undefined;
+              const tracker = trackerMap().get(data.trackerId);
+              const group = tracker ? groupMap().get(tracker.groupId) : undefined;
               const groupIcon = group?.icon;
               const groupName = group?.name;
               const accentColor = group?.color;
               const fieldMap = new Map<string, FieldDefinition>();
               tracker?.fields.forEach((field) => fieldMap.set(field.name, field));
               const photoEntries = Object.entries(data.values).filter(
-                ([fieldName, value]) =>
-                  fieldMap.get(fieldName)?.type === 'photo' && value !== null,
+                ([fieldName, value]) => fieldMap.get(fieldName)?.type === 'photo' && value !== null,
               );
               const textEntries = Object.entries(data.values).filter(
                 ([fieldName, value]) => fieldMap.get(fieldName)?.type !== 'photo' && value !== null,
               );
               const blockStyle = accentColor
                 ? {
-                    borderColor: accentColor,
-                    boxShadow: `0 0 24px ${accentColor}22`,
+                    'border-color': accentColor,
+                    'box-shadow': `0 0 24px ${accentColor}22`,
                   }
                 : undefined;
               const iconStyle = accentColor
                 ? {
                     color: accentColor,
-                    borderColor: accentColor,
-                    borderWidth: '1px',
-                    borderStyle: 'solid',
+                    'border-color': accentColor,
+                    'border-width': '1px',
+                    'border-style': 'solid',
                   }
                 : undefined;
               return (

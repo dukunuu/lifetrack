@@ -7,7 +7,7 @@ interface GroupTreeNodeProps {
   group: Group;
   expandedGroups: Set<string>;
   onToggleExpand: (id: string) => void;
-  childrenMap?: Map<string, Group[]>; 
+  childrenMap?: Map<string, Group[]>;
   onEdit?: (group: Group) => void;
   onDelete?: (group: Group) => void;
   onToggleArchive?: (group: Group) => void;
@@ -27,7 +27,7 @@ export default function GroupTreeNode(props: GroupTreeNodeProps) {
     });
     return {
       roots: childrenMap.get(parentGroupId) || [],
-      fullMap: childrenMap
+      fullMap: childrenMap,
     };
   };
 
@@ -36,12 +36,12 @@ export default function GroupTreeNode(props: GroupTreeNodeProps) {
     async (id) => {
       const list = await findDescendants(id);
       return buildSubTree(id, list);
-    }
+    },
   );
 
   const [hasChildren] = createResource(
     () => (!isExpanded() && !props.childrenMap ? props.group._id : null),
-    async (id) => await checkHasChildren(id)
+    async (id) => await checkHasChildren(id),
   );
 
   const currentChildren = createMemo(() => {
@@ -70,9 +70,9 @@ export default function GroupTreeNode(props: GroupTreeNodeProps) {
       />
 
       <Show when={isExpanded()}>
-        <div class="mt-2 ml-4 border-l-2 border-base-content/5 pl-4">
+        <div class="border-base-content/5 mt-2 ml-4 border-l-2 pl-4">
           <Show when={branchData.loading}>
-             <div class="loading loading-spinner loading-xs text-primary" />
+            <div class="loading loading-spinner loading-xs text-primary" />
           </Show>
 
           <For each={currentChildren()}>

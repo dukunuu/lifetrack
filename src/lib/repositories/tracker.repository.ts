@@ -96,10 +96,7 @@ export class TrackerRepository extends BaseRepository<Tracker> {
     const result = await trackerDb.find({
       selector: {
         _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END },
-        $or: [
-          { groupId },
-          { additionalGroupIds: { $elemMatch: { $eq: groupId } } },
-        ],
+        $or: [{ groupId }, { additionalGroupIds: { $elemMatch: { $eq: groupId } } }],
       },
     });
     return result.docs as Tracker[];
@@ -122,10 +119,7 @@ export class TrackerRepository extends BaseRepository<Tracker> {
     const result = await trackerDb.find({
       selector: {
         _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END },
-        $or: [
-          { tag: tagOrAlias },
-          { aliases: { $elemMatch: { $eq: tagOrAlias } } },
-        ],
+        $or: [{ tag: tagOrAlias }, { aliases: { $elemMatch: { $eq: tagOrAlias } } }],
       },
       limit: 1,
     });
@@ -263,10 +257,7 @@ export class TrackerRepository extends BaseRepository<Tracker> {
           idSelector,
           { archived },
           {
-            $or: [
-              { groupId: { $in: groupIds } },
-              { additionalGroupIds: { $in: groupIds } },
-            ],
+            $or: [{ groupId: { $in: groupIds } }, { additionalGroupIds: { $in: groupIds } }],
           },
         ],
       };
@@ -284,6 +275,39 @@ export class TrackerRepository extends BaseRepository<Tracker> {
     const nextCursor = hasMore ? items[items.length - 1]?._id : undefined;
 
     return { items, perPage, nextCursor };
+  }
+
+  async findTrackersByGroupIds(groupIds: string[]) {
+    await ensureTrackerIndex();
+    const result = await db.find({
+      selector: {
+        _id: { $gte: TRACKER_PREFIX, $lte: TRACKER_END },
+        $or: [
+          { groupId: { $in: groupIds } },
+          { additionalGroupIds: { $elemMatch: { $in: groupIds } } },
+        ],
+      },
+    });
+
+    return result.docs as Tracker[];
+  }
+
+  async findByIds(ids: string[]): Promise<Tracker[]> {
+    if (!ids || ids.length === 0) return [];
+
+    await ensureTrackerIndex();
+
+    const result = await trackerDb.find({
+      selector: {
+        _id: {
+          $in: ids,
+          $gte: TRACKER_PREFIX,
+          $lte: TRACKER_END,
+        },
+      },
+    });
+
+    return result.docs as Tracker[];
   }
 }
 

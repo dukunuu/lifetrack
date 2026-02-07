@@ -82,10 +82,7 @@ const requestOpenRouter = async (options: AiChatOptions) => {
       model: options.model,
       temperature: 0.4,
       max_tokens: 800,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...mapMessages(options.messages),
-      ],
+      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...mapMessages(options.messages)],
     }),
   });
 
@@ -128,10 +125,7 @@ export async function* requestChatResponseStream(options: AiChatOptions) {
       temperature: 0.4,
       max_tokens: 800,
       stream: true,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...mapMessages(options.messages),
-      ],
+      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...mapMessages(options.messages)],
     }),
   });
 
@@ -270,10 +264,7 @@ export const requestChatDecision = async (options: AiChatOptions) => {
     model: options.model,
     temperature: 0.3,
     max_tokens: 800,
-    messages: [
-      { role: 'system', content: COMMAND_PROMPT },
-      ...mapMessages(options.messages),
-    ],
+    messages: [{ role: 'system', content: COMMAND_PROMPT }, ...mapMessages(options.messages)],
   };
 
   const content = await (async () => {
@@ -282,8 +273,7 @@ export const requestChatDecision = async (options: AiChatOptions) => {
       headers: {
         Authorization: `Bearer ${options.apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer':
-          typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
+        'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
         'X-Title': 'Lifetrack',
       },
       body: JSON.stringify(payload),

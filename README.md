@@ -38,6 +38,7 @@ Learn more about deploying your application with the [documentations](https://vi
    - Toggle "Enable sync"
 
 Notes:
+
 - The endpoint should point directly to the user database.
 - For local dev you may need to allow `http://localhost:5173` in CORS.
 
@@ -48,4 +49,5 @@ Notes:
 3. Select an OpenRouter model if needed.
 
 Notes:
+
 - API keys are stored locally in the browser settings.

@@ -33,7 +33,7 @@ const PageShell: ParentComponent<PageShellProps> = (props) => {
       <Show when={props.fab}>
         {(fab) => (
           <button
-            class={`btn btn-primary btn-circle btn-lg hover:shadow-3xl fixed right-6 z-40 shadow-2xl transition-all hover:scale-110 sm:right-8 fab-quickadd-offset ${fab().class ?? ''}`}
+            class={`btn btn-primary btn-circle btn-lg hover:shadow-3xl fab-quickadd-offset fixed right-6 z-40 shadow-2xl transition-all hover:scale-110 sm:right-8 ${fab().class ?? ''}`}
             onClick={fab().onClick}
             title={fab().title ?? fab().label}
             aria-label={fab().label}

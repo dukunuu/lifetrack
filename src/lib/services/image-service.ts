@@ -17,11 +17,7 @@ export const supportsImageModel = (model: string) =>
 
 export const supportsVisionModel = (model: string) => {
   const lower = model.toLowerCase();
-  return (
-    lower.includes('gpt') ||
-    lower.includes('claude') ||
-    lower.includes('gemini')
-  );
+  return lower.includes('gpt') || lower.includes('claude') || lower.includes('gemini');
 };
 
 const blobToDataUrl = (blob: Blob): Promise<string> =>
@@ -50,10 +46,7 @@ export const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
   return response.blob();
 };
 
-export const compressDataUrl = async (
-  dataUrl: string,
-  maxBytes: number = MAX_IMAGE_BYTES,
-) => {
+export const compressDataUrl = async (dataUrl: string, maxBytes: number = MAX_IMAGE_BYTES) => {
   if (estimateDataUrlBytes(dataUrl) <= maxBytes) return dataUrl;
 
   const img = await loadImage(dataUrl);
@@ -208,9 +201,7 @@ export const generateImage = async (options: ImageGenerateOptions) => {
     if (!imageUrl) {
       throw new Error('Image response was empty.');
     }
-    const dataUrl = imageUrl.startsWith('data:')
-      ? imageUrl
-      : await fetchImageAsDataUrl(imageUrl);
+    const dataUrl = imageUrl.startsWith('data:') ? imageUrl : await fetchImageAsDataUrl(imageUrl);
     return { dataUrl: await compressDataUrl(dataUrl) };
   }
 

@@ -1,14 +1,17 @@
-import { createSignal, Show, For, onMount, onCleanup, createMemo } from 'solid-js';
-import type { Tracker, FieldDefinition } from '../../lib/db/types';
-import JsonEditor from '../common/JsonEditor';
-import FieldBuilder from './FieldBuilder';
-import FormHeader from '../common/FormHeader';
-import FormFooter from '../common/FormFooter';
-import FormErrorAlert from '../common/FormErrorAlert';
-import { trackerSchema } from '../../lib/schemas/tracker.schema';
 import { Sparkles } from 'lucide-solid';
+import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import type { FieldDefinition, Tracker } from '../../lib/db/types';
 import { useAiJsonCompletion } from '../../lib/hooks/useAiJsonCompletion';
 import { useGroups } from '../../lib/hooks/useGroups';
+import { trackerSchema } from '../../lib/schemas/tracker.schema';
+import FormErrorAlert from '../common/FormErrorAlert';
+import FormField from '../common/FormField';
+import FormFooter from '../common/FormFooter';
+import FormGrid from '../common/FormGrid';
+import FormHeader from '../common/FormHeader';
+import FormSection from '../common/FormSection';
+import JsonEditor from '../common/JsonEditor';
+import FieldBuilder from './FieldBuilder';
 
 interface TrackerFormProps {
   onSubmit: (data: Omit<Tracker, '_id' | '_rev' | 'createdAt' | 'updatedAt'>) => Promise<void>;
@@ -182,17 +185,17 @@ export default function TrackerFormV2(props: TrackerFormProps) {
         await props.onSubmit(data);
 
         // Reset
-          setJsonValue(
-            JSON.stringify(
-              {
-                label: '',
-                tag: '',
-                groupId: '',
-                additionalGroupIds: [],
-                fields: defaultFields,
-                aliases: [],
-                pinned: false,
-                sortOrder: 0,
+        setJsonValue(
+          JSON.stringify(
+            {
+              label: '',
+              tag: '',
+              groupId: '',
+              additionalGroupIds: [],
+              fields: defaultFields,
+              aliases: [],
+              pinned: false,
+              sortOrder: 0,
               archived: false,
             },
             null,
@@ -253,7 +256,10 @@ export default function TrackerFormV2(props: TrackerFormProps) {
         groupId: groupId(),
         additionalGroupIds: additionalGroupIds(),
         fields: fields(),
-        aliases: aliases().split(',').map((a) => a.trim()).filter(Boolean),
+        aliases: aliases()
+          .split(',')
+          .map((a) => a.trim())
+          .filter(Boolean),
         pinned: pinned(),
         sortOrder: props.initialData?.sortOrder || 0,
         archived: props.initialData?.archived || false,
@@ -300,70 +306,54 @@ export default function TrackerFormV2(props: TrackerFormProps) {
           <Show when={mode() === 'form'}>
             <div class="space-y-8">
               {/* Basic Info Section */}
-              <div class="space-y-4">
-                <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                  Basic Information
-                </h3>
-
-                {/* Label */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Label *
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Barbell Bench Press"
-                    class="input input-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
-                    classList={{
-                      'input-error': !!validationErrors().label,
-                    }}
-                    value={label()}
-                    onInput={(e) => {
-                      setLabel(e.currentTarget.value);
-                      if (validationErrors().label) {
-                        const errors = { ...validationErrors() };
-                        delete errors.label;
-                        setValidationErrors(errors);
-                      }
-                    }}
+              <FormSection title="Basic Information">
+                <FormGrid>
+                  <FormField
+                    label="Label"
                     required
-                  />
-                  <Show when={validationErrors().label}>
-                    <p class="text-error mt-1 text-xs">{validationErrors().label}</p>
-                  </Show>
-                  <Show when={!validationErrors().label}>
-                    <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                      Display name for this tracker
-                    </p>
-                  </Show>
-                </div>
+                    error={validationErrors().label}
+                    help={!validationErrors().label ? 'Display name for this tracker' : undefined}
+                  >
+                    <input
+                      type="text"
+                      placeholder="e.g., Barbell Bench Press"
+                      class="input input-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
+                      classList={{
+                        'input-error': !!validationErrors().label,
+                      }}
+                      value={label()}
+                      onInput={(e) => {
+                        setLabel(e.currentTarget.value);
+                        if (validationErrors().label) {
+                          const errors = { ...validationErrors() };
+                          delete errors.label;
+                          setValidationErrors(errors);
+                        }
+                      }}
+                      required
+                    />
+                  </FormField>
 
-                {/* Tag */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">Tag</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., bench-press"
-                    class="input input-bordered bg-base-100 text-base-content w-full text-base"
-                    value={tag()}
-                    onInput={(e) => setTag(e.currentTarget.value)}
-                  />
-                  <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                    Auto-generated from label if empty. Used in quick-add syntax: #{tag() || 'tag'}
-                  </p>
-                </div>
+                  <FormField
+                    label="Tag"
+                    help={`Auto-generated from label if empty. Used in quick-add syntax: #${tag() || 'tag'}`}
+                  >
+                    <input
+                      type="text"
+                      placeholder="e.g., bench-press"
+                      class="input input-bordered bg-base-100 text-base-content w-full text-base"
+                      value={tag()}
+                      onInput={(e) => setTag(e.currentTarget.value)}
+                    />
+                  </FormField>
+                </FormGrid>
 
-                {/* Group */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Group *
-                    </span>
-                  </label>
+                <FormField
+                  label="Group"
+                  required
+                  error={validationErrors().groupId}
+                  help={!validationErrors().groupId ? 'Where this tracker belongs' : undefined}
+                >
                   <select
                     class="select select-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
                     classList={{
@@ -395,23 +385,12 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                       )}
                     </For>
                   </select>
-                  <Show when={validationErrors().groupId}>
-                    <p class="text-error mt-1 text-xs">{validationErrors().groupId}</p>
-                  </Show>
-                  <Show when={!validationErrors().groupId}>
-                    <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                      Where this tracker belongs
-                    </p>
-                  </Show>
-                </div>
+                </FormField>
 
-                {/* Additional Groups */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Additional Groups
-                    </span>
-                  </label>
+                <FormField
+                  label="Additional Groups"
+                  help="Show this tracker under multiple groups."
+                >
                   <div class="border-base-300 bg-base-200/50 space-y-2 rounded-xl border p-3">
                     <Show
                       when={additionalGroupOptions().length > 0}
@@ -451,17 +430,11 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                       </For>
                     </Show>
                   </div>
-                  <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                    Show this tracker under multiple groups.
-                  </p>
-                </div>
-              </div>
+                </FormField>
+              </FormSection>
 
               {/* Fields Section */}
-              <div class="space-y-4">
-                <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                  Fields
-                </h3>
+              <FormSection title="Fields">
                 <Show when={validationErrors().fields}>
                   <div class="alert alert-error">
                     <svg
@@ -490,21 +463,14 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                     setValidationErrors(errors);
                   }}
                 />
-              </div>
+              </FormSection>
 
               {/* Advanced Section */}
-              <div class="space-y-4">
-                <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                  Advanced Options
-                </h3>
-
-                {/* Aliases */}
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Aliases
-                    </span>
-                  </label>
+              <FormSection title="Advanced Options">
+                <FormField
+                  label="Aliases"
+                  help="Comma-separated shortcuts for quick-add (e.g., #bench instead of #bench-press)"
+                >
                   <input
                     type="text"
                     placeholder="bench, bp"
@@ -512,12 +478,8 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                     value={aliases()}
                     onInput={(e) => setAliases(e.currentTarget.value)}
                   />
-                  <p class="text-base-content/60 mt-1.5 text-xs sm:text-sm">
-                    Comma-separated shortcuts for quick-add (e.g., #bench instead of #bench-press)
-                  </p>
-                </div>
+                </FormField>
 
-                {/* Pinned */}
                 <div class="form-control">
                   <label class="border-base-content/10 hover:border-primary/30 bg-base-200 flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors">
                     <input
@@ -536,7 +498,7 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                     </div>
                   </label>
                 </div>
-              </div>
+              </FormSection>
             </div>
           </Show>
 
@@ -632,11 +594,11 @@ export default function TrackerFormV2(props: TrackerFormProps) {
                 </div>
               </Show>
 
-                <JsonEditor
-                  value={jsonValue()}
-                  onChange={setJsonValue}
-                  schema={trackerSchema}
-                  height="600px"
+              <JsonEditor
+                value={jsonValue()}
+                onChange={setJsonValue}
+                schema={trackerSchema}
+                height="600px"
               />
             </div>
           </Show>

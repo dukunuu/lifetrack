@@ -73,7 +73,7 @@ export default function ActiveSession() {
 
   return (
     <div
-      class="border-base-300/70 bg-base-200/70 mb-8 rounded-2xl border sm:p-6 p-3 shadow-md"
+      class="border-base-300/70 bg-base-200/70 mb-8 rounded-2xl border p-3 shadow-md sm:p-6"
       style={{
         'border-left': activeGroupColor() ? `2px solid ${activeGroupColor()}` : undefined,
       }}
@@ -105,9 +105,9 @@ export default function ActiveSession() {
                     onInput={(e) => setGroupId(e.currentTarget.value)}
                   >
                     <option value="">Select a group</option>
-                  <For each={groups().filter((group) => !group.archived && group.allowsTrackers)}>
-                    {(group: Group) => <option value={group._id}>{group.name}</option>}
-                  </For>
+                    <For each={groups().filter((group) => !group.archived && group.allowsTrackers)}>
+                      {(group: Group) => <option value={group._id}>{group.name}</option>}
+                    </For>
                   </select>
                 </label>
 
@@ -138,8 +138,8 @@ export default function ActiveSession() {
         }
       >
         {(session) => (
-          <div class="border-base-300/70 bg-base-100/60 rounded-xl border p-4 space-y-4">
-            <div class="bg-base-100/50 border-base-300/50 flex flex-col sm:flex-row w-full items-center justify-between gap-4 rounded-xl border px-4 py-3">
+          <div class="border-base-300/70 bg-base-100/60 space-y-4 rounded-xl border p-4">
+            <div class="bg-base-100/50 border-base-300/50 flex w-full flex-col items-center justify-between gap-4 rounded-xl border px-4 py-3 sm:flex-row">
               <div class="flex w-full flex-2 items-center gap-3">
                 <div
                   class="bg-base-200 flex size-12 items-center justify-center rounded-2xl"
@@ -157,18 +157,20 @@ export default function ActiveSession() {
                     {session.name || 'Session'}
                   </div>
                   <div class="text-base-content/60 text-sm">
-                    {session.groupId ? groupMap().get(session.groupId)?.name ?? 'No group' : 'No group'}
+                    {session.groupId
+                      ? (groupMap().get(session.groupId)?.name ?? 'No group')
+                      : 'No group'}
                   </div>
                 </div>
               </div>
-                <div class="flex sm:justify-end w-full justify-between flex-1 gap-y-4 sm:text-right text-xs items-center flex-row gap-x-3">
-                  <div class="text-base-content/50 uppercase tracking-wide">Duration</div>
-                  <div class="text-base-content text-lg font-semibold tabular-nums">
-                    {durationLabel()}
+              <div class="flex w-full flex-1 flex-row items-center justify-between gap-x-3 gap-y-4 text-xs sm:justify-end sm:text-right">
+                <div class="text-base-content/50 tracking-wide uppercase">Duration</div>
+                <div class="text-base-content text-lg font-semibold tabular-nums">
+                  {durationLabel()}
                 </div>
                 <Show when={session.summary?.entryCount !== undefined}>
                   <div>
-                    <div class="text-base-content/50 uppercase tracking-wide">Entries</div>
+                    <div class="text-base-content/50 tracking-wide uppercase">Entries</div>
                     <div class="text-base-content text-lg font-semibold tabular-nums">
                       {session.summary?.entryCount ?? 0}
                     </div>
@@ -177,7 +179,7 @@ export default function ActiveSession() {
               </div>
             </div>
 
-            <label class="form-control flex flex-col sm:items-start justify-start gap-2">
+            <label class="form-control flex flex-col justify-start gap-2 sm:items-start">
               <span class="text-base-content/60 pl-2 text-xs font-semibold tracking-wide uppercase">
                 Notes
               </span>
@@ -189,7 +191,7 @@ export default function ActiveSession() {
               />
             </label>
 
-            <div class="flex items-center sm:justify-end justify-between gap-3">
+            <div class="flex items-center justify-between gap-3 sm:justify-end">
               <button type="button" class="btn btn-primary gap-2" onClick={handleComplete}>
                 <CheckCircle2 class="size-4" />
                 Complete

@@ -6,7 +6,9 @@ const nextTick = (cb: () => void) => {
   }
 };
 
-const globalWithProcess = globalThis as { process?: { env?: Record<string, string>; browser?: boolean; nextTick?: typeof nextTick } };
+const globalWithProcess = globalThis as {
+  process?: { env?: Record<string, string>; browser?: boolean; nextTick?: typeof nextTick };
+};
 const existing = globalWithProcess.process ?? {};
 
 globalWithProcess.process = {

@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup } from 'solid-js';
+import { createSignal, onCleanup, onMount } from 'solid-js';
 import type { Group, PagedResult } from '../db/types';
 import type { GroupSearchOptions } from '../repositories';
 import { groupRepo } from '../repositories';
@@ -99,7 +99,7 @@ export function useGroups(options: UseGroupsOptions = { load: 'all' }) {
       setError(err as Error);
       throw err;
     }
-  }
+  };
 
   const findActive = async () => {
     try {
@@ -130,12 +130,21 @@ export function useGroups(options: UseGroupsOptions = { load: 'all' }) {
 
   const findDescendants = async (id: string) => {
     try {
-      return await groupRepo.findDescendants(id)
+      return await groupRepo.findDescendants(id);
     } catch (err) {
       setError(err as Error);
       throw err;
     }
-  }
+  };
+
+  const findByIds = async (ids: string[]): Promise<Group[]> => {
+    try {
+      return await groupRepo.findByIds(ids);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
 
   return {
     groups,
@@ -147,6 +156,7 @@ export function useGroups(options: UseGroupsOptions = { load: 'all' }) {
     deleteGroup,
     findActive,
     findById,
+    findByIds,
     findGroupsForTrackers,
     findDescendants,
     searchGroups,

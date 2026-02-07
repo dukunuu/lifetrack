@@ -80,7 +80,7 @@ const Layout: ParentComponent = (props) => {
         {props.children}
 
         <Show when={showDockedQuickAdd()}>
-          <div class="fixed bottom-0 left-0 right-0 z-10 lg:left-64">
+          <div class="fixed right-0 bottom-0 left-0 z-10 lg:left-64">
             <div>
               <div class="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
                 <QuickAdd fixed openUp showPinnedTrackers={false} />
@@ -106,7 +106,7 @@ const Layout: ParentComponent = (props) => {
             <div class="modal-box bg-base-200 border-base-300 relative w-full max-w-3xl border">
               <button
                 type="button"
-                class="btn btn-sm btn-circle absolute right-4 top-4"
+                class="btn btn-sm btn-circle absolute top-4 right-4"
                 aria-label="Close Quick Add"
                 onClick={() => setIsQuickAddOpen(false)}
               >
@@ -124,7 +124,7 @@ const Layout: ParentComponent = (props) => {
       </div>
 
       {/* Sidebar */}
-      <div class="drawer-side z-[999] is-drawer-close:overflow-visible">
+      <div class="drawer-side is-drawer-close:overflow-visible z-[999]">
         <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
 
         <div class="bg-base-300 border-base-content/10 is-drawer-close:w-16 is-drawer-open:w-64 transition-cinematic flex min-h-full flex-col border-r transition-[width] duration-300">

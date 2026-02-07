@@ -1,13 +1,17 @@
-import { createSignal, Show, For, onMount, onCleanup, createMemo, createEffect } from 'solid-js';
-import type { Goal, Group, Tracker } from '../../lib/db/types';
-import JsonEditor from '../common/JsonEditor';
-import EmojiPicker from '../common/EmojiPicker';
-import ColorPicker from '../common/ColorPicker';
-import FormHeader from '../common/FormHeader';
-import FormErrorAlert from '../common/FormErrorAlert';
-import { goalSchema } from '../../lib/schemas/goal.schema';
 import { Sparkles } from 'lucide-solid';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import type { Goal, Group, Tracker } from '../../lib/db/types';
 import { useAiJsonCompletion } from '../../lib/hooks/useAiJsonCompletion';
+import { goalSchema } from '../../lib/schemas/goal.schema';
+import ColorPicker from '../common/ColorPicker';
+import EmojiPicker from '../common/EmojiPicker';
+import FormErrorAlert from '../common/FormErrorAlert';
+import FormField from '../common/FormField';
+import FormFooter from '../common/FormFooter';
+import FormGrid from '../common/FormGrid';
+import FormHeader from '../common/FormHeader';
+import FormSection from '../common/FormSection';
+import JsonEditor from '../common/JsonEditor';
 
 interface GoalFormProps {
   groups: Group[];
@@ -304,7 +308,6 @@ export default function GoalFormV2(props: GoalFormProps) {
     onCleanup(() => document.removeEventListener('keydown', handleKeyDown));
   });
 
-
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
@@ -433,9 +436,9 @@ export default function GoalFormV2(props: GoalFormProps) {
       setStartDate('');
       setEndDate('');
       setAggregation('sum');
-        setRollover(false);
-        setIcon('');
-        setColor('');
+      setRollover(false);
+      setIcon('');
+      setColor('');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -443,6 +446,8 @@ export default function GoalFormV2(props: GoalFormProps) {
     }
   };
 
+  const submitLabel = () =>
+    submitting() ? 'Saving...' : props.initialData ? 'Update Goal' : 'Create Goal';
 
   return (
     <div class="flex h-full flex-col">
@@ -460,18 +465,9 @@ export default function GoalFormV2(props: GoalFormProps) {
 
       <div class="flex-1 overflow-y-auto p-4 sm:p-6">
         <Show when={mode() === 'form'}>
-          <form class="space-y-8" onSubmit={handleSubmit}>
-            <div class="space-y-4">
-              <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                Basics
-              </h3>
-
-              <div class="form-control">
-                <label class="mb-2 block">
-                  <span class="text-base-content text-sm font-semibold sm:text-base">
-                    Goal Name *
-                  </span>
-                </label>
+          <form id="goal-form" class="space-y-8" onSubmit={handleSubmit}>
+            <FormSection title="Basics">
+              <FormField label="Goal Name" required error={validationErrors().name}>
                 <input
                   type="text"
                   class="input input-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
@@ -480,35 +476,20 @@ export default function GoalFormV2(props: GoalFormProps) {
                   onInput={(e) => setName(e.currentTarget.value)}
                   placeholder="Weekly Training Volume"
                 />
-                <Show when={validationErrors().name}>
-                  <p class="text-error mt-1 text-xs">{validationErrors().name}</p>
-                </Show>
-              </div>
+              </FormField>
 
-              <div class="form-control">
-                <label class="mb-2 block">
-                  <span class="text-base-content text-sm font-semibold sm:text-base">
-                    Description
-                  </span>
-                </label>
+              <FormField label="Description">
                 <textarea
                   class="textarea textarea-bordered bg-base-100 text-base-content min-h-[96px]"
                   value={description()}
                   onInput={(e) => setDescription(e.currentTarget.value)}
                   placeholder="Optional notes about this goal"
                 />
-              </div>
-            </div>
+              </FormField>
+            </FormSection>
 
-            <div class="space-y-4">
-              <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                Scope
-              </h3>
-
-              <div class="form-control">
-                <label class="mb-2 block">
-                  <span class="text-base-content text-sm font-semibold sm:text-base">Scope</span>
-                </label>
+            <FormSection title="Scope">
+              <FormField label="Scope">
                 <div class="join w-full">
                   <button
                     type="button"
@@ -525,16 +506,17 @@ export default function GoalFormV2(props: GoalFormProps) {
                     Group
                   </button>
                 </div>
-              </div>
+              </FormField>
 
               <Show when={scope() === 'group'}>
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text font-semibold">Group</span>
-                    <span class="label-text-alt text-base-content/60 tabular-nums">
-                      {groupTrackerCount()} tracker{groupTrackerCount() !== 1 ? 's' : ''} linked
-                    </span>
-                  </label>
+                <FormField
+                  label="Group"
+                  error={validationErrors().groupId}
+                  labelClass="flex items-center justify-between"
+                >
+                  <span slot="label-extra" class="text-base-content/60 text-xs tabular-nums">
+                    {groupTrackerCount()} tracker{groupTrackerCount() !== 1 ? 's' : ''} linked
+                  </span>
                   <select
                     class="select select-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
                     classList={{ 'select-error': !!validationErrors().groupId }}
@@ -546,20 +528,18 @@ export default function GoalFormV2(props: GoalFormProps) {
                       {(group) => <option value={group._id}>{group.name}</option>}
                     </For>
                   </select>
-                  <Show when={validationErrors().groupId}>
-                    <p class="text-error mt-1 text-xs">{validationErrors().groupId}</p>
-                  </Show>
-                </div>
+                </FormField>
               </Show>
 
               <Show when={scope() === 'trackers'}>
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text font-semibold">Trackers</span>
-                    <span class="label-text-alt text-base-content/60 tabular-nums">
-                      {selectedTrackerCount()} selected
-                    </span>
-                  </label>
+                <FormField
+                  label="Trackers"
+                  error={validationErrors().trackerIds}
+                  labelClass="flex items-center justify-between"
+                >
+                  <span slot="label-extra" class="text-base-content/60 text-xs tabular-nums">
+                    {selectedTrackerCount()} selected
+                  </span>
                   <div
                     class={`border-base-300 max-h-56 space-y-2 overflow-y-auto rounded-xl border p-3 ${
                       validationErrors().trackerIds ? 'border-error' : ''
@@ -580,20 +560,18 @@ export default function GoalFormV2(props: GoalFormProps) {
                       )}
                     </For>
                   </div>
-                  <Show when={validationErrors().trackerIds}>
-                    <p class="text-error mt-1 text-xs">{validationErrors().trackerIds}</p>
-                  </Show>
-                </div>
+                </FormField>
               </Show>
 
               <Show when={scope() === 'trackers' && availableFieldNames().length > 0}>
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text font-semibold">Fields to Track</span>
-                    <span class="label-text-alt text-base-content/60 tabular-nums">
-                      {selectedFieldNames().size || 'All'} selected
-                    </span>
-                  </label>
+                <FormField
+                  label="Fields to Track"
+                  help="Leave empty to include all numeric fields."
+                  labelClass="flex items-center justify-between"
+                >
+                  <span slot="label-extra" class="text-base-content/60 text-xs tabular-nums">
+                    {selectedFieldNames().size || 'All'} selected
+                  </span>
                   <div class="border-base-300 max-h-48 space-y-2 overflow-y-auto rounded-xl border p-3">
                     <For each={availableFieldNames()}>
                       {(fieldName) => (
@@ -609,23 +587,13 @@ export default function GoalFormV2(props: GoalFormProps) {
                       )}
                     </For>
                   </div>
-                  <p class="text-base-content/60 mt-1 text-xs">
-                    Leave empty to include all numeric fields.
-                  </p>
-                </div>
+                </FormField>
               </Show>
-            </div>
+            </FormSection>
 
-            <div class="space-y-4">
-              <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                Target & Timing
-              </h3>
-
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">Type</span>
-                  </label>
+            <FormSection title="Target & Timing">
+              <FormGrid>
+                <FormField label="Type">
                   <select
                     class="select select-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
                     value={type()}
@@ -635,14 +603,9 @@ export default function GoalFormV2(props: GoalFormProps) {
                       {(option) => <option value={option}>{option}</option>}
                     </For>
                   </select>
-                </div>
+                </FormField>
 
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Aggregation
-                    </span>
-                  </label>
+                <FormField label="Aggregation">
                   <select
                     class="select select-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
                     value={aggregation()}
@@ -652,16 +615,11 @@ export default function GoalFormV2(props: GoalFormProps) {
                       {(option) => <option value={option}>{option}</option>}
                     </For>
                   </select>
-                </div>
-              </div>
+                </FormField>
+              </FormGrid>
 
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Target *
-                    </span>
-                  </label>
+              <FormGrid>
+                <FormField label="Target" required error={validationErrors().target}>
                   <input
                     type="number"
                     min="0"
@@ -671,17 +629,9 @@ export default function GoalFormV2(props: GoalFormProps) {
                     value={target()}
                     onInput={(e) => setTarget(Number(e.currentTarget.value))}
                   />
-                  <Show when={validationErrors().target}>
-                    <p class="text-error mt-1 text-xs">{validationErrors().target}</p>
-                  </Show>
-                </div>
+                </FormField>
 
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">
-                      Target Unit
-                    </span>
-                  </label>
+                <FormField label="Target Unit">
                   <input
                     type="text"
                     class="input input-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
@@ -689,14 +639,11 @@ export default function GoalFormV2(props: GoalFormProps) {
                     onInput={(e) => setTargetUnit(e.currentTarget.value)}
                     placeholder="kg, sessions, ml"
                   />
-                </div>
-              </div>
+                </FormField>
+              </FormGrid>
 
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="form-control">
-                  <label class="mb-2 block">
-                    <span class="text-base-content text-sm font-semibold sm:text-base">Period</span>
-                  </label>
+              <FormGrid>
+                <FormField label="Period">
                   <select
                     class="select select-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
                     value={period()}
@@ -706,10 +653,9 @@ export default function GoalFormV2(props: GoalFormProps) {
                       {(option) => <option value={option}>{option}</option>}
                     </For>
                   </select>
-                </div>
+                </FormField>
 
-                <label class="form-control">
-                  <span class="text-base-content text-sm font-semibold sm:text-base">Rollover</span>
+                <FormField label="Rollover">
                   <div class="mt-3">
                     <input
                       type="checkbox"
@@ -718,71 +664,48 @@ export default function GoalFormV2(props: GoalFormProps) {
                       onChange={(e) => setRollover(e.currentTarget.checked)}
                     />
                   </div>
-                </label>
-              </div>
+                </FormField>
+              </FormGrid>
 
               <Show when={period() === 'custom'}>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div class="form-control">
-                    <label class="mb-2 block">
-                      <span class="text-base-content text-sm font-semibold sm:text-base">
-                        Start Date
-                      </span>
-                    </label>
+                <FormGrid>
+                  <FormField label="Start Date">
                     <input
                       type="date"
                       class="input input-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
                       value={startDate()}
                       onInput={(e) => setStartDate(e.currentTarget.value)}
                     />
-                  </div>
-                  <div class="form-control">
-                    <label class="mb-2 block">
-                      <span class="text-base-content text-sm font-semibold sm:text-base">
-                        End Date
-                      </span>
-                    </label>
+                  </FormField>
+
+                  <FormField label="End Date">
                     <input
                       type="date"
                       class="input input-bordered bg-base-100 text-base-content w-full text-base sm:text-lg"
                       value={endDate()}
                       onInput={(e) => setEndDate(e.currentTarget.value)}
                     />
-                  </div>
-                </div>
+                  </FormField>
+                </FormGrid>
                 <Show when={validationErrors().period}>
                   <p class="text-error mt-1 text-xs">{validationErrors().period}</p>
                 </Show>
               </Show>
-            </div>
+            </FormSection>
 
-            <div class="space-y-4">
-              <h3 class="text-base-content/90 border-primary/20 flex items-center gap-2 border-b pb-2 text-lg font-bold">
-                Style
-              </h3>
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormSection title="Style">
+              <FormGrid>
                 <EmojiPicker value={icon()} onChange={setIcon} label="Icon" />
                 <ColorPicker value={color()} onChange={setColor} label="Color" />
-              </div>
-            </div>
+              </FormGrid>
+            </FormSection>
 
             <FormErrorAlert message={error()} />
-
-            <div class="flex justify-end gap-3">
-              <Show when={props.onCancel}>
-                <button type="button" class="btn btn-ghost" onClick={props.onCancel}>
-                  Cancel
-                </button>
-              </Show>
-              <button type="submit" class="btn btn-primary" disabled={submitting()}>
-                {submitting() ? 'Saving...' : props.initialData ? 'Update Goal' : 'Create Goal'}
-              </button>
-            </div>
           </form>
         </Show>
 
         <Show when={mode() === 'json'}>
-          <div class="space-y-4">
+          <form id="goal-form" class="space-y-4" onSubmit={handleSubmit}>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div class="alert alert-info flex-1">
                 <svg
@@ -881,20 +804,16 @@ export default function GoalFormV2(props: GoalFormProps) {
               schema={goalSchema}
               height="520px"
             />
-
-            <div class="flex justify-end gap-3">
-              <Show when={props.onCancel}>
-                <button type="button" class="btn btn-ghost" onClick={props.onCancel}>
-                  Cancel
-                </button>
-              </Show>
-              <button type="button" class="btn btn-primary" disabled={submitting()} onClick={handleSubmit}>
-                {submitting() ? 'Saving...' : props.initialData ? 'Update Goal' : 'Create Goal'}
-              </button>
-            </div>
-          </div>
+          </form>
         </Show>
       </div>
+
+      <FormFooter
+        formId="goal-form"
+        submitting={submitting()}
+        submitLabel={submitLabel()}
+        onCancel={props.onCancel}
+      />
     </div>
   );
 }

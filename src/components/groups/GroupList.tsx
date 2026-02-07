@@ -11,8 +11,8 @@ import { ITEMS_PER_PAGE } from '../../lib/constants/pagination';
 import GroupTreeNode from './GroupTreeNode';
 
 interface GroupListProps {
-  revision: number,
-  archived: boolean,
+  revision: number;
+  archived: boolean;
   searchGroups: (options?: GroupSearchOptions) => Promise<PagedResult<Group>>;
   onEdit?: (group: Group) => void;
   onDelete?: (group: Group) => void;
@@ -55,18 +55,17 @@ export default function GroupList(props: GroupListProps) {
     },
   );
 
-  const paginatedFilteredActiveGroups = createMemo(() =>  activeSearchResults().items);
+  const paginatedFilteredActiveGroups = createMemo(() => activeSearchResults().items);
 
-  const activeResultTotal = createMemo(() => activeSearchResults().total ?? paginatedFilteredActiveGroups().length,
+  const activeResultTotal = createMemo(
+    () => activeSearchResults().total ?? paginatedFilteredActiveGroups().length,
   );
   const activeHasTotal = createMemo(() => activeSearchResults().total !== undefined);
 
   const activeHasPrev = createMemo(() => activeCursorStack().length > 0);
   const activeHasNext = createMemo(() => Boolean(activeSearchResults().nextCursor));
 
-  watchEmptyPages(
-    () => paginatedFilteredActiveGroups().length,
-  );
+  watchEmptyPages(() => paginatedFilteredActiveGroups().length);
 
   const toggleExpanded = (groupId: string) => {
     const current = new Set(expandedGroups());
@@ -128,7 +127,10 @@ export default function GroupList(props: GroupListProps) {
           <h3 class="text-xl font-bold">Groups</h3>
           <Show when={searchQuery()}>
             <span class="text-base-content/60 text-sm tabular-nums">
-              <Show when={activeHasTotal()} fallback={<>Showing {paginatedFilteredActiveGroups().length}</>}>
+              <Show
+                when={activeHasTotal()}
+                fallback={<>Showing {paginatedFilteredActiveGroups().length}</>}
+              >
                 {activeResultTotal()} result{activeResultTotal() !== 1 ? 's' : ''}
               </Show>
             </span>
@@ -157,11 +159,11 @@ export default function GroupList(props: GroupListProps) {
                   <>
                     <For each={activeSearchResults().items}>
                       {(root) => (
-                        <GroupTreeNode 
+                        <GroupTreeNode
                           expandedGroups={expandedGroups()}
                           onToggleExpand={toggleExpanded}
-                          group={root} 
-                          onEdit={props.onEdit} 
+                          group={root}
+                          onEdit={props.onEdit}
                           onDelete={props.onDelete}
                           onToggleArchive={props.onToggleArchive}
                         />

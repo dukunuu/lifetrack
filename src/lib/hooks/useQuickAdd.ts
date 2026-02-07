@@ -88,9 +88,7 @@ export function useQuickAdd() {
             ignoreLocation: true,
             minMatchCharLength: 1,
           });
-          results = query
-            ? fuse.search(query).map((result) => result.item)
-            : results.slice(0, 8);
+          results = query ? fuse.search(query).map((result) => result.item) : results.slice(0, 8);
         }
 
         const commandSuggestions: CommandSuggestion[] = results.slice(0, 8).map((group) => ({
@@ -109,7 +107,7 @@ export function useQuickAdd() {
 
       const query = lower.slice(1).trim();
       const commandSuggestions: CommandSuggestion[] = [
-        ...buildCommandSuggestions(activeSession ? activeSession.name ?? 'session' : undefined),
+        ...buildCommandSuggestions(activeSession ? (activeSession.name ?? 'session') : undefined),
         {
           type: 'command' as const,
           command: 'chat',
@@ -224,7 +222,8 @@ export function useQuickAdd() {
     const currentTag = getCurrentTag();
     if (!currentTag) {
       const value = input().trim();
-      const next = value.length > 0 ? `${value} #${suggestion.tracker.tag} ` : `#${suggestion.tracker.tag} `;
+      const next =
+        value.length > 0 ? `${value} #${suggestion.tracker.tag} ` : `#${suggestion.tracker.tag} `;
       setInput(next);
       setShowSuggestions(false);
       return;
@@ -479,7 +478,8 @@ export function useQuickAdd() {
     const name = startMatch[2]?.trim() || undefined;
 
     const bySlug = await groupRepo.findBySlug(groupSlug);
-    const byPath = !bySlug && groupSlug.includes('/') ? await groupRepo.findByPath(groupSlug) : null;
+    const byPath =
+      !bySlug && groupSlug.includes('/') ? await groupRepo.findByPath(groupSlug) : null;
     const group = bySlug ?? byPath ?? null;
     if (!group) {
       throw new Error(`Group "${groupSlug}" not found.`);

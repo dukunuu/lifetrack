@@ -1,7 +1,7 @@
-import { BaseRepository } from './base.repository';
 import { db } from '../db';
-import { generateId, slugify, buildPath, calculateDepth, buildSearchTokens } from '../db/utils';
 import type { Group, PagedResult } from '../db/types';
+import { buildPath, buildSearchTokens, calculateDepth, generateId, slugify } from '../db/utils';
+import { BaseRepository } from './base.repository';
 import { trackerRepo } from './tracker.repository';
 
 export interface GroupSearchOptions {
@@ -44,7 +44,7 @@ const ensureGroupIndex = async () => {
       }),
       db.createIndex({
         index: {
-          fields: ['_id', 'path'],
+          fields: ['path'],
           name: 'groups-by-path',
         },
       }),
@@ -154,7 +154,7 @@ export class GroupRepository extends BaseRepository<Group> {
     const result = await groupDb.find({
       selector: { parentId },
       limit: 1, // We only need to know if ONE exists
-      fields: ['_id'] // Only fetch ID to keep it tiny
+      fields: ['_id'], // Only fetch ID to keep it tiny
     });
     return result.docs.length > 0;
   }
@@ -191,9 +191,9 @@ export class GroupRepository extends BaseRepository<Group> {
         include_docs: true,
       })) as QuickSearchResponse;
 
-      let filtered = result.rows
+      const filtered = result.rows
         .map((row: QuickSearchRow) => row.doc)
-        .filter((doc): doc is Group => !!doc)
+        .filter((doc): doc is Group => !!doc);
 
       const total = filtered.length;
       const start = cursor ? Math.max(filtered.findIndex((doc) => doc._id === cursor) + 1, 0) : 0;
@@ -206,11 +206,9 @@ export class GroupRepository extends BaseRepository<Group> {
     await ensureGroupIndex();
 
     const selector = {
-      _id: cursor
-        ? { $gt: cursor, $lte: GROUP_END }
-        : { $gte: GROUP_PREFIX, $lte: GROUP_END },
+      _id: cursor ? { $gt: cursor, $lte: GROUP_END } : { $gte: GROUP_PREFIX, $lte: GROUP_END },
       parentId: null,
-      archived: { $gte: false }, 
+      archived: { $gte: false },
     };
 
     const result = await db.find({
@@ -226,7 +224,6 @@ export class GroupRepository extends BaseRepository<Group> {
 
     return { items, perPage, nextCursor };
   }
-
 
   async delete(id: string): Promise<void> {
     const group = await this.findById(id);
@@ -273,78 +270,78 @@ export class GroupRepository extends BaseRepository<Group> {
   async update(id: string, data: Partial<Omit<Group, '_id' | '_rev'>>): Promise<Group> {
     const existing = await this.findById(id);
     if (!existing) throw new Error(`Document with id ${id} not found`);
-  
+
     const nextName = data.name ?? existing.name;
     const nextSlug = data.slug ?? existing.slug;
     const nextParentId = data.parentId !== undefined ? data.parentId : existing.parentId;
     const nextArchived = data.archived !== undefined ? data.archived : existing.archived;
-  
+
     let nextPath = existing.path;
     let nextDepth = existing.depth;
-  
+
     if (existing.archived === true && nextArchived === false) {
       if (nextParentId) {
         const parent = await this.findById(nextParentId);
         if (!parent || parent.archived) {
-          throw new Error("Cannot unarchive: The parent group is currently archived.");
+          throw new Error('Cannot unarchive: The parent group is currently archived.');
         }
       }
     }
-  
+
     const isMoving = nextParentId !== existing.parentId || nextSlug !== existing.slug;
-    
+
     if (isMoving) {
       let parentPath: string | null = null;
       if (nextParentId) {
         const parent = await this.findById(nextParentId);
-        if (!parent) throw new Error("Parent group not found");
+        if (!parent) throw new Error('Parent group not found');
         parentPath = parent.path;
       }
-      
+
       nextPath = buildPath(parentPath, nextSlug);
       nextDepth = calculateDepth(nextPath);
-  
+
       // Depth Validation
       if (nextDepth > MAX_GROUP_DEPTH) {
         throw new Error(`Exceeds maximum depth of ${MAX_GROUP_DEPTH}`);
       }
-  
+
       // Check if any descendant would exceed depth after move
       const descendants = await this.findDescendants(id);
       const maxDescendantDepth = descendants.reduce((max, d) => {
         const projectedPath = d.path.replace(existing.path, nextPath);
         return Math.max(max, calculateDepth(projectedPath));
       }, nextDepth);
-  
+
       if (maxDescendantDepth > MAX_GROUP_DEPTH) {
-        throw new Error("Moving this branch would exceed the maximum allowed depth.");
+        throw new Error('Moving this branch would exceed the maximum allowed depth.');
       }
     }
-  
+
     const archiveChanged = nextArchived !== existing.archived;
     let descendantUpdates: Group[] = [];
-  
+
     if (isMoving || archiveChanged) {
       const descendants = await this.findDescendants(id);
       descendantUpdates = descendants.map((desc) => {
         const newPath = isMoving ? desc.path.replace(existing.path, nextPath) : desc.path;
         return {
           ...desc,
-          archived: nextArchived, 
+          archived: nextArchived,
           path: newPath,
           depth: calculateDepth(newPath),
-          groupSearchTokens: buildSearchTokens(desc.name, desc.slug, newPath, desc.description)
+          groupSearchTokens: buildSearchTokens(desc.name, desc.slug, newPath, desc.description),
         };
       });
     }
-  
+
     const groupSearchTokens = buildSearchTokens(
       nextName,
       nextSlug,
       nextPath,
-      data.description ?? existing.description
+      data.description ?? existing.description,
     );
-  
+
     const updatedGroup = await super.update(id, {
       ...data,
       path: nextPath,
@@ -352,12 +349,12 @@ export class GroupRepository extends BaseRepository<Group> {
       archived: nextArchived,
       groupSearchTokens,
     });
-  
+
     // 5. SAVE DESCENDANTS (Bulk)
     if (descendantUpdates.length > 0) {
       await (db as PouchDB.Database<Group>).bulkDocs(descendantUpdates);
     }
-  
+
     return updatedGroup;
   }
 
@@ -389,6 +386,39 @@ export class GroupRepository extends BaseRepository<Group> {
     }
 
     return groupTokensReady;
+  }
+
+  async findGroupWithChildren(path: string) {
+    await ensureGroupIndex();
+    const result = await groupDb.find({
+      selector: {
+        _id: { $gte: GROUP_PREFIX, $lte: GROUP_END },
+        path: {
+          $gte: path,
+          $lt: path + '\ufff0',
+        },
+      },
+      sort: ['path'],
+    });
+    return result.docs as Group[];
+  }
+
+  async findByIds(ids: string[]): Promise<Group[]> {
+    if (!ids || ids.length === 0) return [];
+
+    await ensureGroupIndex();
+
+    const result = await groupDb.find({
+      selector: {
+        _id: {
+          $in: ids,
+          $gte: GROUP_PREFIX,
+          $lte: GROUP_END,
+        },
+      },
+    });
+
+    return result.docs as Group[];
   }
 }
 

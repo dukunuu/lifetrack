@@ -1,19 +1,19 @@
 import { Target } from 'lucide-solid';
-import { For, Show, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { For, Show, createMemo, createResource, createSignal, onCleanup, onMount } from 'solid-js';
 import EntryFeed from '../components/entries/EntryFeed';
 import QuickAdd from '../components/entries/QuickAdd';
 import ActiveSession from '../components/sessions/ActiveSession';
+import type { Goal } from '../lib/db/types';
 import { useGoals } from '../lib/hooks/useGoals';
-import { useGroups } from '../lib/hooks/useGroups';
-import { useTrackers } from '../lib/hooks/useTrackers';
-import { useEntriesAll } from '../lib/hooks/useEntriesAll';
-import { computeGoalProgress } from '../lib/services/goal-progress';
+import { type GoalProgress, computeGoalProgress } from '../lib/services/goal-progress';
+
+interface GoalWithProgress {
+  goal: Goal;
+  progress: GoalProgress;
+}
 
 export default function Home() {
-  const { goals } = useGoals();
-  const { groups } = useGroups();
-  const { trackers } = useTrackers({ loadAll: true });
-  const { entries } = useEntriesAll();
+  const { goals, goalRevision } = useGoals();
 
   const formatNumber = (value: number) => {
     if (!Number.isFinite(value)) return '0';
@@ -28,12 +28,21 @@ export default function Home() {
       .slice(0, 15);
   });
 
-  const pinnedProgress = createMemo(() => {
-    return pinnedGoals().map((goal) => ({
-      goal,
-      progress: computeGoalProgress(goal, entries(), groups(), trackers()),
-    }));
-  });
+  const fetchPinnedProgress = async (goals: Goal[]): Promise<GoalWithProgress[]> => {
+    const progress = await Promise.all(
+      goals.map(async (goal) => ({
+        goal,
+        progress: await computeGoalProgress(goal),
+      })),
+    );
+    return progress;
+  };
+
+  const [pinnedProgress] = createResource(
+    () => ({ goals: pinnedGoals(), revision: goalRevision() }),
+    (source) => fetchPinnedProgress(source.goals),
+    { initialValue: [] as GoalWithProgress[] },
+  );
 
   return (
     <div class="bg-base-100 min-h-screen">
@@ -81,7 +90,9 @@ export default function Home() {
                       <div
                         class="carousel-item accent-card group bg-base-200/80 border-base-300/70 animate-fade-in-up relative w-72 overflow-hidden rounded-2xl border shadow-lg transition-all duration-300 sm:w-80"
                         style={{
-                          'border-left': item.goal.color ? `2px solid ${item.goal.color}` : undefined,
+                          'border-left': item.goal.color
+                            ? `2px solid ${item.goal.color}`
+                            : undefined,
                           '--accent-color': item.goal.color || 'oklch(var(--p))',
                           'animation-delay': `${index() * 80}ms`,
                         }}
@@ -115,7 +126,7 @@ export default function Home() {
                               <span class="text-base-content/70 truncate">
                                 {item.progress.detailLabel}
                               </span>
-                              <span class="text-base-content/80 break-words font-semibold tabular-nums sm:text-right">
+                              <span class="text-base-content/80 font-semibold break-words tabular-nums sm:text-right">
                                 {formatNumber(item.progress.current)} /{' '}
                                 {formatNumber(item.progress.target)}
                                 {item.goal.targetUnit ? ` ${item.goal.targetUnit}` : ''}

@@ -129,12 +129,12 @@ export default function SessionRoute() {
   };
 
   return (
-    <div class="flex-1 flex h-screen flex-col overflow-hidden">
+    <div class="flex h-screen flex-1 flex-col overflow-hidden">
       <div class="bg-base-200/70 border-base-300/60 px-4 py-4 shadow-lg sm:px-6 lg:px-8">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 class="text-2xl font-bold">{session()?.name || 'AI Chat'}</h1>
-            <p class="text-base-content/60 text-sm hidden sm:block">
+            <p class="text-base-content/60 hidden text-sm sm:block">
               Conversation session with the AI assistant.
             </p>
           </div>
@@ -243,7 +243,7 @@ export default function SessionRoute() {
         >
           <div class="flex-1 px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8">
             <div class="border-base-300/50 bg-base-100/70 relative flex h-full min-h-0 flex-col gap-4 overflow-hidden rounded-2xl border p-4 shadow-sm sm:p-6">
-              <div class="bg-primary/10 pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full blur-3xl"></div>
+              <div class="bg-primary/10 pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full blur-3xl"></div>
               <div class="bg-secondary/10 pointer-events-none absolute -bottom-20 -left-20 h-52 w-52 rounded-full blur-3xl"></div>
               <Show
                 when={displayedMessages().length > 0}
@@ -253,8 +253,11 @@ export default function SessionRoute() {
                   </div>
                 }
               >
-                <div ref={chatScrollRef} class="flex-1 max-h-[calc(100dvh-24rem)] overflow-y-auto overflow-x-hidden pr-2">
-                  <div class="flex flex-col gap-3 pb-2 ">
+                <div
+                  ref={chatScrollRef}
+                  class="max-h-[calc(100dvh-24rem)] flex-1 overflow-x-hidden overflow-y-auto pr-2"
+                >
+                  <div class="flex flex-col gap-3 pb-2">
                     <For each={displayedMessages()}>
                       {(msg) => {
                         const isUser = msg.role === 'user';
@@ -267,17 +270,17 @@ export default function SessionRoute() {
                                   : 'bg-base-200/70 text-base-content'
                               }`}
                             >
-                              <div class="flex items-center gap-2 text-[10px] uppercase tracking-widest opacity-60">
+                              <div class="flex items-center gap-2 text-[10px] tracking-widest uppercase opacity-60">
                                 {isUser ? 'You' : 'AI'}
                                 <span>{formatTime(msg.createdAt)}</span>
                               </div>
                               <Show when={msg.content}>
-                                <div class="mt-2 text-base-content wrap-break-word">
+                                <div class="text-base-content mt-2 wrap-break-word">
                                   <Markdown content={msg.content} />
                                 </div>
                               </Show>
                               <Show when={msg.imageDataUrl}>
-                                <div class="mt-3 overflow-hidden rounded-xl border border-base-300/60">
+                                <div class="border-base-300/60 mt-3 overflow-hidden rounded-xl border">
                                   <ImagePreview
                                     src={msg.imageDataUrl!}
                                     alt={msg.imagePrompt || 'Generated image'}
@@ -295,96 +298,96 @@ export default function SessionRoute() {
                 </div>
               </Show>
 
-            <form onSubmit={handleSend} class="border-base-300/50 border-t pt-4">
-              <div class="flex flex-wrap items-center gap-3">
-                <div class="bg-base-200/60 hidden sm:flex text-base-content/60 items-center gap-2 rounded-full px-3 py-1 text-xs">
-                  <Bot class="size-3" />
-                  /chat session
-                </div>
-                <Show when={isClosed()}>
-                  <span class="text-base-content/50 text-xs">Chat ended</span>
-                </Show>
-                <Show when={error()}>
-                  <span class="text-error text-xs">{error()!.message}</span>
-                </Show>
-                <Show when={streaming()}>
-                  <span class="text-base-content/40 text-xs">Streaming...</span>
-                </Show>
-              </div>
-              <Show when={pendingImage()}>
-                <div class="border-base-300/60 bg-base-200/60 mt-3 flex items-center gap-3 rounded-xl border px-3 py-2">
-                  <div class="relative h-16 w-16 overflow-hidden rounded-lg border border-base-300/60">
-                    <ImagePreview
-                      src={pendingImage()}
-                      alt="Pending upload"
-                      class="h-full w-full object-cover"
-                    />
+              <form onSubmit={handleSend} class="border-base-300/50 border-t pt-4">
+                <div class="flex flex-wrap items-center gap-3">
+                  <div class="bg-base-200/60 text-base-content/60 hidden items-center gap-2 rounded-full px-3 py-1 text-xs sm:flex">
+                    <Bot class="size-3" />
+                    /chat session
                   </div>
-                  <div class="text-base-content/70 text-xs">Image attached</div>
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-xs ml-auto"
-                    onClick={() => setPendingImage('')}
-                    aria-label="Remove attachment"
-                  >
-                    <X class="size-3" />
-                  </button>
-                </div>
-              </Show>
-              <div class="mt-3 flex flex-col gap-2">
-                <div class="flex items-center gap-2">
-                <GlobalInput
-                  class="w-full flex-1 py-3"
-                  value={message()}
-                  onInput={(e) => setMessage(e.currentTarget.value)}
-                  onPaste={handlePaste}
-                  maxlength={2000}
-                  placeholderMaxLength={25}
-                  placeholder={
-                    imageMode()
-                      ? 'Describe the image you want to generate...'
-                      : 'Ask anything about your trackers, goals, or habits...'
-                  }
-                  mode='textarea'
-                  disabled={sending() || isClosed()}
-                />
-                  <button
-                    type="submit"
-                    class="btn btn-primary btn-square"
-                    disabled={sending() || isClosed()}
-                    aria-label={imageMode() ? 'Generate' : 'Send'}
-                  >
-                    <Send class="size-4" />
-                  </button>
-                </div>
-                <div class="flex items-center gap-2">
-                  <label
-                    class={`btn btn-ghost btn-square ${pendingImage() ? 'btn-secondary' : ''}`}
-                    title="Attach image"
-                  >
-                    <Paperclip class="size-4" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      class="hidden"
-                      onChange={handleImageUpload}
-                      disabled={sending() || isClosed()}
-                    />
-                  </label>
-                  <Show when={imageSupported()}>
-                    <button
-                      type="button"
-                      class={`btn ${imageMode() ? 'btn-secondary' : 'btn-ghost'} btn-square`}
-                      onClick={() => setImageMode((prev) => !prev)}
-                      title="Toggle image mode"
-                      disabled={sending() || isClosed()}
-                    >
-                      <Image class="size-4" />
-                    </button>
+                  <Show when={isClosed()}>
+                    <span class="text-base-content/50 text-xs">Chat ended</span>
+                  </Show>
+                  <Show when={error()}>
+                    <span class="text-error text-xs">{error()!.message}</span>
+                  </Show>
+                  <Show when={streaming()}>
+                    <span class="text-base-content/40 text-xs">Streaming...</span>
                   </Show>
                 </div>
-              </div>
-            </form>
+                <Show when={pendingImage()}>
+                  <div class="border-base-300/60 bg-base-200/60 mt-3 flex items-center gap-3 rounded-xl border px-3 py-2">
+                    <div class="border-base-300/60 relative h-16 w-16 overflow-hidden rounded-lg border">
+                      <ImagePreview
+                        src={pendingImage()}
+                        alt="Pending upload"
+                        class="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div class="text-base-content/70 text-xs">Image attached</div>
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-xs ml-auto"
+                      onClick={() => setPendingImage('')}
+                      aria-label="Remove attachment"
+                    >
+                      <X class="size-3" />
+                    </button>
+                  </div>
+                </Show>
+                <div class="mt-3 flex flex-col gap-2">
+                  <div class="flex items-center gap-2">
+                    <GlobalInput
+                      class="w-full flex-1 py-3"
+                      value={message()}
+                      onInput={(e) => setMessage(e.currentTarget.value)}
+                      onPaste={handlePaste}
+                      maxlength={2000}
+                      placeholderMaxLength={25}
+                      placeholder={
+                        imageMode()
+                          ? 'Describe the image you want to generate...'
+                          : 'Ask anything about your trackers, goals, or habits...'
+                      }
+                      mode="textarea"
+                      disabled={sending() || isClosed()}
+                    />
+                    <button
+                      type="submit"
+                      class="btn btn-primary btn-square"
+                      disabled={sending() || isClosed()}
+                      aria-label={imageMode() ? 'Generate' : 'Send'}
+                    >
+                      <Send class="size-4" />
+                    </button>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label
+                      class={`btn btn-ghost btn-square ${pendingImage() ? 'btn-secondary' : ''}`}
+                      title="Attach image"
+                    >
+                      <Paperclip class="size-4" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        class="hidden"
+                        onChange={handleImageUpload}
+                        disabled={sending() || isClosed()}
+                      />
+                    </label>
+                    <Show when={imageSupported()}>
+                      <button
+                        type="button"
+                        class={`btn ${imageMode() ? 'btn-secondary' : 'btn-ghost'} btn-square`}
+                        onClick={() => setImageMode((prev) => !prev)}
+                        title="Toggle image mode"
+                        disabled={sending() || isClosed()}
+                      >
+                        <Image class="size-4" />
+                      </button>
+                    </Show>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </Show>

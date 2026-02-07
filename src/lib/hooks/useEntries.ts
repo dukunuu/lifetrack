@@ -83,6 +83,32 @@ export function useEntries(options?: { limit?: number; autoLoad?: boolean }) {
     }
   };
 
+  const findByGroupId = async (id: string) => {
+    try {
+      return await entryRepo.findByGroupId(id);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const findRelevantEntries = async ({
+    start,
+    end,
+    trackerIds,
+  }: {
+    start?: string;
+    end?: string;
+    trackerIds: string[];
+  }) => {
+    try {
+      return await entryRepo.findRelevantEntries(trackerIds, start, end);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
   return {
     entries,
     loading,
@@ -92,6 +118,8 @@ export function useEntries(options?: { limit?: number; autoLoad?: boolean }) {
     createEntry,
     deleteEntry,
     findByDate,
+    findByGroupId,
+    findRelevantEntries,
     loadMore,
     refresh,
   };

@@ -1,6 +1,6 @@
-import { Show } from 'solid-js';
+import { Archive, Edit, Hash, Pin, Tag, Trash2 } from 'lucide-solid';
+import { For, Show } from 'solid-js';
 import type { Tracker } from '../../lib/db/types';
-import { Pin, Archive, Trash2, Edit, Tag, Hash } from 'lucide-solid';
 
 interface TrackerCardProps {
   tracker: Tracker;
@@ -8,10 +8,32 @@ interface TrackerCardProps {
   index?: number;
   groupName?: string;
   groupColor?: string;
+  searchQuery?: string;
   onEdit?: (tracker: Tracker) => void;
   onDelete?: (tracker: Tracker) => void;
   onTogglePin?: (tracker: Tracker) => void;
   onToggleArchive?: (tracker: Tracker) => void;
+}
+
+function HighlightText(props: { text: string; query?: string }) {
+  if (!props.query || !props.text.toLowerCase().includes(props.query.toLowerCase())) {
+    return <>{props.text}</>;
+  }
+
+  const parts = props.text.split(new RegExp(`(${props.query})`, 'gi'));
+  return (
+    <>
+      <For each={parts}>
+        {(part) =>
+          part.toLowerCase() === props.query?.toLowerCase() ? (
+            <mark class="bg-primary/30 rounded px-0.5">{part}</mark>
+          ) : (
+            <>{part}</>
+          )
+        }
+      </For>
+    </>
+  );
 }
 
 export default function TrackerCard(props: TrackerCardProps) {
@@ -39,10 +61,14 @@ export default function TrackerCard(props: TrackerCardProps) {
               <Hash class="size-5" />
             </div>
             <div>
-              <h4 class="card-title text-lg">{props.tracker.label}</h4>
+              <h4 class="card-title text-lg">
+                <HighlightText text={props.tracker.label} query={props.searchQuery} />
+              </h4>
               <div class="text-base-content/60 flex items-center gap-1 text-xs">
                 <Tag size={12} />
-                <span class="font-mono">{props.tracker.tag}</span>
+                <span class="font-mono">
+                  <HighlightText text={props.tracker.tag} query={props.searchQuery} />
+                </span>
               </div>
             </div>
           </div>
@@ -55,13 +81,13 @@ export default function TrackerCard(props: TrackerCardProps) {
           <div class="mt-2 space-y-1 text-sm">
             <div>
               <span class="text-base-content/60">Group: </span>
-              <span class="text-base-content/90">{props.groupName}</span>
+              <span class="text-base-content/90">
+                <HighlightText text={props.groupName || 'Unknown'} query={props.searchQuery} />
+              </span>
             </div>
             <div>
               <span class="text-base-content/60">Fields: </span>
-              <span class="text-base-content/90 tabular-nums">
-                {props.tracker.fields.length}
-              </span>
+              <span class="text-base-content/90 tabular-nums">{props.tracker.fields.length}</span>
             </div>
             <Show when={props.tracker.aliases && props.tracker.aliases.length > 0}>
               <div>

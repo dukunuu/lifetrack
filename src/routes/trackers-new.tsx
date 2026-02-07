@@ -1,14 +1,16 @@
-import { Show, createMemo, createResource } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
-import { useTrackers } from '../lib/hooks/useTrackers';
-import { useGroups } from '../lib/hooks/useGroups';
-import TrackerFormV2 from '../components/trackers/TrackerFormV2';
-import TrackerList from '../components/trackers/TrackerList';
+import { FolderTree, Plus, Target } from 'lucide-solid';
+import { Match, Show, Switch, createMemo, createResource, onMount } from 'solid-js';
+import { SkeletonList } from '../components/common/Skeleton';
 import GroupFormV2 from '../components/groups/GroupFormV2';
 import GroupList from '../components/groups/GroupList';
 import PageShell from '../components/layout/PageShell';
-import type { Tracker, Group } from '../lib/db/types';
-import { Plus, Target, FolderTree } from 'lucide-solid';
+import TrackerFormV2 from '../components/trackers/TrackerFormV2';
+import TrackerList from '../components/trackers/TrackerList';
+import type { Group, Tracker } from '../lib/db/types';
+import { useGroups } from '../lib/hooks/useGroups';
+import { useTrackers } from '../lib/hooks/useTrackers';
+import { dedupeRequest } from '../lib/utils/async';
 
 export default function TrackersAndGroups() {
   const {
@@ -33,7 +35,9 @@ export default function TrackersAndGroups() {
 
   const activeTab = createMemo(() => (searchParams.tab === 'groups' ? 'groups' : 'trackers'));
   const action = createMemo(() => searchParams.action as 'create' | 'edit' | undefined);
-  const editId = createMemo(() => (typeof searchParams.id === 'string' ? searchParams.id : undefined));
+  const editId = createMemo(() =>
+    typeof searchParams.id === 'string' ? searchParams.id : undefined,
+  );
 
   const [editingTracker] = createResource(
     () => ({
@@ -49,13 +53,13 @@ export default function TrackersAndGroups() {
   const [editingGroup] = createResource(
     () => ({
       id: action() === 'edit' && activeTab() === 'groups' ? editId() : undefined,
-      revision: groupRevision()
+      revision: groupRevision(),
     }),
     async (source) => {
       if (!source.id) return undefined;
       return (await findGroupById(source.id)) ?? undefined;
-    }
-  )
+    },
+  );
 
   const showModal = createMemo(() => !!action());
 
@@ -135,6 +139,13 @@ export default function TrackersAndGroups() {
 
   const loading = () => trackersLoading() || groupsLoading();
 
+  // Warm up database indexes on mount for better performance
+  onMount(() => {
+    // Pre-fetch one item to ensure indexes are created
+    dedupeRequest('warmup-trackers', () => searchTrackers({ perPage: 1 }));
+    dedupeRequest('warmup-groups', () => searchGroups({ perPage: 1 }));
+  });
+
   return (
     <PageShell
       title="Trackers & Groups"
@@ -157,10 +168,7 @@ export default function TrackersAndGroups() {
           <div class="modal modal-open backdrop-blur-sm">
             <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-4xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
               <Show when={action() === 'create' && activeTab() === 'trackers'}>
-                <TrackerFormV2
-                  onSubmit={handleCreateTracker}
-                  onCancel={closeModal}
-                />
+                <TrackerFormV2 onSubmit={handleCreateTracker} onCancel={closeModal} />
               </Show>
               <Show when={action() === 'edit' && activeTab() === 'trackers' && editingTracker()}>
                 <TrackerFormV2
@@ -170,10 +178,7 @@ export default function TrackersAndGroups() {
                 />
               </Show>
               <Show when={action() === 'create' && activeTab() === 'groups'}>
-                <GroupFormV2
-                  onSubmit={handleCreateGroup}
-                  onCancel={closeModal}
-                />
+                <GroupFormV2 onSubmit={handleCreateGroup} onCancel={closeModal} />
               </Show>
               <Show when={action() === 'edit' && activeTab() === 'groups' && editingGroup()}>
                 <GroupFormV2
@@ -206,7 +211,7 @@ export default function TrackersAndGroups() {
                 t_archivedCursorStack: undefined,
               })
             }
-            >
+          >
             <Target size={18} class="hidden sm:inline" />
             <span>Trackers</span>
           </button>
@@ -225,7 +230,7 @@ export default function TrackersAndGroups() {
                 g_archivedCursorStack: undefined,
               })
             }
-            >
+          >
             <FolderTree size={18} class="hidden sm:inline" />
             <span>Groups</span>
           </button>
@@ -234,36 +239,47 @@ export default function TrackersAndGroups() {
 
       {/* Content */}
       <div class="space-y-6">
-        {/* Loading State */}
+        {/* Loading State with Skeletons */}
         <Show when={loading()}>
-          <div class="flex items-center justify-center py-20">
-            <span class="loading loading-spinner loading-lg text-primary"></span>
+          <div class="animate-fade-in">
+            <Show when={activeTab() === 'trackers'}>
+              <SkeletonList type="tracker" count={3} />
+            </Show>
+            <Show when={activeTab() === 'groups'}>
+              <SkeletonList type="group" count={3} />
+            </Show>
           </div>
         </Show>
 
-        {/* Trackers Tab */}
-        <Show when={!loading() && activeTab() === 'trackers'}>
-            <TrackerList
-              searchTrackers={searchTrackers}
-              revision={trackerRevision()}
-              onEdit={handleEditTrackerClick}
-              onDelete={handleDeleteTracker}
-              onTogglePin={handleToggleTrackerPin}
-              onToggleArchive={handleToggleTrackerArchive}
-            />
-        </Show>
-
-        {/* Groups Tab */}
-        <Show when={!loading() && activeTab() === 'groups'}>
-          <GroupList
-            revision={groupRevision()}
-            searchGroups={searchGroups}
-            archived={false}
-            onEdit={handleEditGroupClick}
-            onDelete={handleDeleteGroup}
-            onToggleArchive={handleToggleGroupArchive}
-          />
-        </Show>
+        {/* Tab Content with Transitions */}
+        <div class="relative">
+          <Switch>
+            <Match when={!loading() && activeTab() === 'trackers'}>
+              <div class="animate-slide-in-right">
+                <TrackerList
+                  searchTrackers={searchTrackers}
+                  revision={trackerRevision()}
+                  onEdit={handleEditTrackerClick}
+                  onDelete={handleDeleteTracker}
+                  onTogglePin={handleToggleTrackerPin}
+                  onToggleArchive={handleToggleTrackerArchive}
+                />
+              </div>
+            </Match>
+            <Match when={!loading() && activeTab() === 'groups'}>
+              <div class="animate-slide-in-left">
+                <GroupList
+                  revision={groupRevision()}
+                  searchGroups={searchGroups}
+                  archived={false}
+                  onEdit={handleEditGroupClick}
+                  onDelete={handleDeleteGroup}
+                  onToggleArchive={handleToggleGroupArchive}
+                />
+              </div>
+            </Match>
+          </Switch>
+        </div>
       </div>
     </PageShell>
   );

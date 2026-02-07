@@ -17,6 +17,9 @@ declare namespace PouchDB {
       build?: boolean;
       destroy?: boolean;
       filter?: (doc: Content) => boolean;
-    }): Promise<{ rows: Array<{ id: string; doc?: Content; score?: number }>; total_rows?: number }>;
+    }): Promise<{
+      rows: Array<{ id: string; doc?: Content; score?: number }>;
+      total_rows?: number;
+    }>;
   }
 }

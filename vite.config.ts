@@ -11,9 +11,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'md5-jkmyers': fileURLToPath(
-        new URL('./src/lib/shims/md5-jkmyers.cjs', import.meta.url),
-      ),
+      'md5-jkmyers': fileURLToPath(new URL('./src/lib/shims/md5-jkmyers.cjs', import.meta.url)),
       'pouchdb-promise': fileURLToPath(
         new URL('./src/lib/shims/pouchdb-promise.cjs', import.meta.url),
       ),

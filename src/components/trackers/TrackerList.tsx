@@ -1,15 +1,15 @@
-import { For, Show, createMemo, createResource } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
+import { Filter, Search, X } from 'lucide-solid';
+import { For, Show, createMemo, createResource } from 'solid-js';
+import { ITEMS_PER_PAGE } from '../../lib/constants/pagination';
 import type { Group, PagedResult, Tracker } from '../../lib/db/types';
-import { Search, Filter, X } from 'lucide-solid';
+import { useGroups } from '../../lib/hooks/useGroups';
+import { useSearchCursorPagination } from '../../lib/hooks/useSearchPagination';
+import type { TrackerSearchOptions } from '../../lib/repositories';
+import CardList from '../common/CardList';
 import PaginationControls from '../common/PaginationControls';
 import SearchInput from '../common/SearchInput';
-import type { TrackerSearchOptions } from '../../lib/repositories';
-import { useSearchCursorPagination } from '../../lib/hooks/useSearchPagination';
-import CardList from '../common/CardList';
 import TrackerCard from './TrackerCard';
-import { ITEMS_PER_PAGE } from '../../lib/constants/pagination';
-import { useGroups } from '../../lib/hooks/useGroups';
 
 interface TrackerListProps {
   searchTrackers: (options?: TrackerSearchOptions) => Promise<PagedResult<Tracker>>;
@@ -26,7 +26,10 @@ export default function TrackerList(props: TrackerListProps) {
 
   const parseGroupIds = (value: unknown) => {
     if (typeof value !== 'string' || !value.trim()) return [];
-    return value.split(',').map((item) => item.trim()).filter(Boolean);
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
   };
 
   const {
@@ -203,7 +206,10 @@ export default function TrackerList(props: TrackerListProps) {
           <h3 class="text-xl font-bold">Active Trackers</h3>
           <Show when={searchQuery() || selectedGroupIds().size > 0}>
             <span class="text-base-content/60 text-sm tabular-nums">
-              <Show when={activeHasTotal()} fallback={<>Showing {paginatedActiveTrackers().length}</>}>
+              <Show
+                when={activeHasTotal()}
+                fallback={<>Showing {paginatedActiveTrackers().length}</>}
+              >
                 {activeResultTotal()} result{activeResultTotal() !== 1 ? 's' : ''}
               </Show>
               <Show when={selectedGroupIds().size > 0}>
@@ -238,6 +244,7 @@ export default function TrackerList(props: TrackerListProps) {
                 index,
                 groupName: getGroupName(tracker.groupId),
                 groupColor: getGroupColor(tracker.groupId),
+                searchQuery: searchQuery(),
                 onEdit: props.onEdit,
                 onDelete: props.onDelete,
                 onTogglePin: props.onTogglePin,

@@ -136,7 +136,7 @@ export default function ImagePreview(props: ImagePreviewProps) {
     <>
       <button
         type="button"
-        class="bg-transparent border-0 p-0"
+        class="border-0 bg-transparent p-0"
         onClick={openPreview}
         aria-label={props.alt ?? 'Open image preview'}
       >
@@ -162,7 +162,7 @@ export default function ImagePreview(props: ImagePreviewProps) {
           >
             <button
               type="button"
-              class="btn btn-sm btn-ghost absolute right-4 top-4 text-base-100"
+              class="btn btn-sm btn-ghost text-base-100 absolute top-4 right-4"
               onClick={closePreview}
             >
               Close
@@ -191,7 +191,7 @@ export default function ImagePreview(props: ImagePreviewProps) {
               />
             </div>
 
-            <div class="absolute bottom-4 text-xs text-base-100/80">
+            <div class="text-base-100/80 absolute bottom-4 text-xs">
               Scroll to zoom · Drag to pan · Esc to close
             </div>
           </dialog>

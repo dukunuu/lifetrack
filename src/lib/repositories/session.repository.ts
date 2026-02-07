@@ -184,7 +184,10 @@ export class SessionRepository extends BaseRepository<Session> {
     });
   }
 
-  async appendChatMessage(sessionId: string, message: NonNullable<Session['chatMessages']>[number]) {
+  async appendChatMessage(
+    sessionId: string,
+    message: NonNullable<Session['chatMessages']>[number],
+  ) {
     const session = await this.findById(sessionId);
     if (!session) {
       throw new Error(`Session ${sessionId} not found`);

@@ -1,4 +1,5 @@
-import type { Entry, Goal, Group, Tracker } from '../db/types';
+import type { Goal } from '../db/types';
+import { entryRepo, groupRepo, trackerRepo } from '../repositories';
 
 export interface GoalProgress {
   current: number;
@@ -67,35 +68,37 @@ const getDateRange = (goal: Goal, referenceDate?: Date): GoalProgressRange => {
   };
 };
 
-const getGroupTrackerIds = (groupId: string | undefined, groups: Group[], trackers: Tracker[]) => {
+const getGroupTrackerIds = async (groupId: string | undefined): Promise<string[]> => {
   if (!groupId) return [];
-  const group = groups.find((item) => item._id === groupId);
-  if (!group) return [];
-  const prefix = `${group.path}/`;
-  const groupIds = groups
-    .filter((item) => item._id === groupId || item.path.startsWith(prefix))
-    .map((item) => item._id);
 
-  return trackers
-    .filter((tracker) => {
-      if (groupIds.includes(tracker.groupId)) return true;
-      return tracker.additionalGroupIds?.some((extra) => groupIds.includes(extra));
-    })
-    .map((tracker) => tracker._id);
+  try {
+    const group = await groupRepo.findById(groupId);
+    if (!group) return [];
+
+    const relatedGroups = await groupRepo.findGroupWithChildren(group.path);
+
+    if (relatedGroups.length === 0) return [];
+
+    const groupIds = relatedGroups.map((g) => g._id);
+
+    const trackers = await trackerRepo.findTrackersByGroupIds(groupIds);
+
+    return trackers.map((t) => t._id);
+  } catch (error) {
+    console.error('Error fetching recursive tracker IDs:', error);
+    return [];
+  }
 };
 
-export function computeGoalProgress(
+export async function computeGoalProgress(
   goal: Goal,
-  entries: Entry[],
-  groups: Group[],
-  trackers: Tracker[],
   options: GoalProgressOptions = {},
-): GoalProgress {
+): Promise<GoalProgress> {
   const range = options.range ?? getDateRange(goal, options.referenceDate);
   const { start, end } = range;
-  const trackerIds = goal.groupId
-    ? getGroupTrackerIds(goal.groupId, groups, trackers)
-    : goal.trackerIds;
+
+  const trackerIds = goal.groupId ? await getGroupTrackerIds(goal.groupId) : goal.trackerIds;
+
   const trackerIdSet = new Set(trackerIds);
   const fieldNameSet =
     !goal.groupId && goal.fieldNames && goal.fieldNames.length > 0
@@ -105,9 +108,9 @@ export function computeGoalProgress(
   const dataPoints: Array<{ value: number; date: string; timestamp: string }> = [];
   const dateSet = new Set<string>();
 
-  for (const entry of entries) {
-    if (entry.date < start || entry.date > end) continue;
+  const relevantEntries = await entryRepo.findRelevantEntries(trackerIds, start, end);
 
+  for (const entry of relevantEntries) {
     for (const data of entry.data) {
       if (!trackerIdSet.has(data.trackerId) || data.skipped) continue;
 
@@ -178,10 +181,12 @@ export function computeGoalProgress(
 
   let scopeLabel = `${trackerIds.length} tracker${trackerIds.length !== 1 ? 's' : ''}`;
   if (goal.groupId) {
-    const groupName = groups.find((group) => group._id === goal.groupId)?.name || 'Unknown group';
+    const group = await groupRepo.findById(goal.groupId);
+    const groupName = group?.name || 'Unknown group';
     scopeLabel = groupName;
   } else if (trackerIds.length === 1) {
-    scopeLabel = trackers.find((tracker) => tracker._id === trackerIds[0])?.label || scopeLabel;
+    const tracker = await trackerRepo.findById(trackerIds[0]);
+    scopeLabel = tracker?.label || scopeLabel;
   }
 
   return {

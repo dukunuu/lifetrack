@@ -1,6 +1,13 @@
 import { createEffect, createSignal, onCleanup } from 'solid-js';
+import {
+  type SyncStatus,
+  getSyncState,
+  isSyncActive,
+  startCouchSync,
+  stopCouchSync,
+  resync as triggerResync,
+} from '../services/sync-service';
 import { useSettings } from './useSettings';
-import { startCouchSync, stopCouchSync, type SyncStatus } from '../services/sync-service';
 
 export function useSync() {
   const { settings } = useSettings();
@@ -21,5 +28,14 @@ export function useSync() {
     stopCouchSync();
   });
 
-  return { status };
+  const resync = () => {
+    triggerResync(settings().sync, setStatus);
+  };
+
+  return {
+    status,
+    getState: getSyncState,
+    isActive: isSyncActive,
+    resync,
+  };
 }

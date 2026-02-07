@@ -1,10 +1,10 @@
-import PouchDB from 'pouchdb-core';
-import IdbAdapter from 'pouchdb-adapter-idb';
 import HttpAdapter from 'pouchdb-adapter-http';
-import Replication from 'pouchdb-replication';
+import IdbAdapter from 'pouchdb-adapter-idb';
+import PouchDB from 'pouchdb-core';
 import Find from 'pouchdb-find';
-import QuickSearch from 'pouchdb-quick-search';
 import MapReduce from 'pouchdb-mapreduce-no-ddocs';
+import QuickSearch from 'pouchdb-quick-search';
+import Replication from 'pouchdb-replication';
 import { timestamp } from './utils';
 
 PouchDB.plugin(IdbAdapter);
@@ -39,20 +39,37 @@ type SyncEventEmitter = {
   on(event: 'change', handler: (info: unknown) => void): SyncEventEmitter;
   on(event: 'error', handler: (err: unknown) => void): SyncEventEmitter;
   on(event: 'paused' | 'active', handler: () => void): SyncEventEmitter;
+  on(event: 'complete', handler: () => void): SyncEventEmitter;
 };
 
 export type SyncController = SyncEventEmitter & {
   cancel: () => void;
 };
 
+export interface SyncOptions {
+  batch_size?: number;
+  batches_limit?: number;
+  retry?: boolean;
+  heartbeat?: number;
+  timeout?: number;
+  back_off_function?: (delay: number) => number;
+}
+
 export function setupSync(
   remoteUrl: string,
   username?: string,
   password?: string,
+  options: SyncOptions = {},
 ): SyncController {
   const remote = new PouchDB(remoteUrl, {
     auth: username && password ? { username, password } : undefined,
   });
+
+  const syncOptions = {
+    live: true,
+    retry: true,
+    ...options,
+  };
 
   const sync = (
     db as PouchDB.Database<Record<string, unknown>> & {
@@ -61,7 +78,7 @@ export function setupSync(
         options: unknown,
       ) => SyncController;
     }
-  ).sync(remote, { live: true, retry: true });
+  ).sync(remote, syncOptions);
 
   sync.on('change', (info: unknown) => {
     console.log('Sync change:', info);
@@ -79,6 +96,10 @@ export function setupSync(
     console.log('Sync active');
   });
 
+  sync.on('complete', () => {
+    console.log('Sync complete');
+  });
+
   return sync;
 }
 
@@ -88,9 +109,7 @@ export async function destroyDatabase(): Promise<void> {
 
 export async function runMaintenance(): Promise<void> {
   await db.compact();
-  await (
-    db as PouchDB.Database<{}> & { viewCleanup: () => Promise<unknown> }
-  ).viewCleanup();
+  await (db as PouchDB.Database<object> & { viewCleanup: () => Promise<unknown> }).viewCleanup();
 }
 
 export async function exportDatabase(): Promise<Blob> {

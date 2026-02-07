@@ -229,7 +229,7 @@ export default function QuickAdd(props: QuickAddProps) {
     if (!items) return;
 
     const imageItem = Array.from(items).find(
-      (item) => item.kind === 'file' && item.type.startsWith('image/')
+      (item) => item.kind === 'file' && item.type.startsWith('image/'),
     );
     if (!imageItem) return;
 
@@ -262,11 +262,10 @@ export default function QuickAdd(props: QuickAddProps) {
 
   return (
     <div
-      class="bg-base-200 border-primary/10 relative rounded-2xl border shadow-2x"
+      class="bg-base-200 border-primary/10 shadow-2x relative rounded-2xl border"
       classList={{ 'mb-8': !props.fixed }}
     >
-
-      <div class="relative sm:p-6 p-3">
+      <div class="relative p-3 sm:p-6">
         <div class="mb-4 flex items-center gap-2">
           <Zap class="text-primary size-5" />
           <h2 class="text-lg font-bold">Quick Add</h2>
@@ -304,7 +303,7 @@ export default function QuickAdd(props: QuickAddProps) {
                       <Show when={meta?.icon}>
                         <span class="shrink-0">{meta?.icon}</span>
                       </Show>
-                      <span class="font-mono text-[11px] leading-none shrink-0">
+                      <span class="shrink-0 font-mono text-[11px] leading-none">
                         #{tracker.tag}
                       </span>
                       <span class="text-base-content/60 relative -top-px min-w-0 truncate text-[11px] leading-none">
@@ -321,7 +320,7 @@ export default function QuickAdd(props: QuickAddProps) {
         <form onSubmit={handleSubmit}>
           <div class="form-control">
             <div class="relative">
-              <GlobalInput 
+              <GlobalInput
                 ref={inputRef}
                 type="text"
                 value={input()}
@@ -329,10 +328,10 @@ export default function QuickAdd(props: QuickAddProps) {
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 placeholder="Type a command..."
-                class="bg-base-100/50 border-base-300/50 pr-8 focus:border-primary/50 w-full transition-colors"
+                class="bg-base-100/50 border-base-300/50 focus:border-primary/50 w-full pr-8 transition-colors"
                 disabled={loading()}
               />
-              <label class="btn btn-ghost btn-sm btn-square absolute right-1 top-1">
+              <label class="btn btn-ghost btn-sm btn-square absolute top-1 right-1">
                 <Paperclip class="size-4" />
                 <input
                   type="file"
@@ -343,7 +342,7 @@ export default function QuickAdd(props: QuickAddProps) {
               </label>
 
               <div
-                class="flex bg-base-200 flex-col gap-2"
+                class="bg-base-200 flex flex-col gap-2"
                 classList={{
                   'absolute bottom-full left-0 right-0 mb-2': props.openUp,
                   'z-20': props.openUp,
@@ -460,7 +459,7 @@ export default function QuickAdd(props: QuickAddProps) {
                                         <span>{emoji}</span>
                                       </Show>
                                     ) : (
-                                      <Command class="size-5 text-primary" />
+                                      <Command class="text-primary size-5" />
                                     )}
                                   </div>
                                 </div>
@@ -489,7 +488,7 @@ export default function QuickAdd(props: QuickAddProps) {
                                 ) : (
                                   <>
                                     <div class="flex flex-wrap items-center gap-2">
-                                      <span class="font-mono text-sm text-primary">
+                                      <span class="text-primary font-mono text-sm">
                                         {commandSuggestion?.label}
                                       </span>
                                       <Show
@@ -531,7 +530,7 @@ export default function QuickAdd(props: QuickAddProps) {
 
           <Show when={attachmentPreview()}>
             <div class="border-base-300/60 bg-base-200/60 mt-3 flex items-center gap-3 rounded-xl border px-3 py-2">
-              <div class="relative h-14 w-14 overflow-hidden rounded-lg border border-base-300/60">
+              <div class="border-base-300/60 relative h-14 w-14 overflow-hidden rounded-lg border">
                 <ImagePreview
                   src={attachmentPreview()!}
                   alt="Attachment"

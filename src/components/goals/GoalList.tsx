@@ -1,21 +1,19 @@
-import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
-import type { Entry, Goal, GoalPeriod, Group, PagedResult, Tracker } from '../../lib/db/types';
-import { X } from 'lucide-solid';
-import { computeGoalProgress } from '../../lib/services/goal-progress';
-import SearchInput from '../common/SearchInput';
-import PaginationControls from '../common/PaginationControls';
-import type { GoalSearchOptions } from '../../lib/repositories';
-import GoalCard from './GoalCard';
-import EntryCard from '../entries/EntryCard';
-import { useSearchCursorPagination } from '../../lib/hooks/useSearchPagination';
+import { Show, createMemo, createResource, createSignal } from 'solid-js';
 import { ITEMS_PER_PAGE } from '../../lib/constants/pagination';
+import type { Goal, GoalPeriod, PagedResult } from '../../lib/db/types';
+import { useEntries } from '../../lib/hooks/useEntries';
+import { useSearchCursorPagination } from '../../lib/hooks/useSearchPagination';
+import type { GoalSearchOptions } from '../../lib/repositories';
+import { type GoalProgress, computeGoalProgress } from '../../lib/services/goal-progress';
+import CardList from '../common/CardList';
+import PaginationControls from '../common/PaginationControls';
+import SearchInput from '../common/SearchInput';
+import GoalCard from './GoalCard';
+import GoalShowModal from './GoalShow';
 
 interface GoalListProps {
-  goals: Goal[];
-  groups: Group[];
-  trackers: Tracker[];
-  entries: Entry[];
+  revision: number;
   searchGoals: (options?: GoalSearchOptions) => Promise<PagedResult<Goal>>;
   onEdit?: (goal: Goal) => void;
   onDelete?: (goal: Goal) => void;
@@ -48,6 +46,8 @@ export default function GoalList(props: GoalListProps) {
   });
   const allowedPeriods = ['daily', 'weekly', 'monthly'] as const;
 
+  const { findByGroupId, findRelevantEntries } = useEntries({ autoLoad: false });
+
   const periodFilter = createMemo<GoalPeriod | undefined>(() => {
     const period = searchParams.period;
     if (typeof period !== 'string') return undefined;
@@ -69,7 +69,7 @@ export default function GoalList(props: GoalListProps) {
       archived: false,
       period: periodFilter(),
       perPage: ITEMS_PER_PAGE,
-      revision: props.goals,
+      revision: props.revision,
     }),
     (source) =>
       props.searchGoals({
@@ -91,7 +91,7 @@ export default function GoalList(props: GoalListProps) {
       archived: true,
       period: periodFilter(),
       perPage: ITEMS_PER_PAGE,
-      revision: props.goals,
+      revision: props.revision,
     }),
     (source) =>
       props.searchGoals({
@@ -105,6 +105,8 @@ export default function GoalList(props: GoalListProps) {
       initialValue: { items: [], perPage: ITEMS_PER_PAGE },
     },
   );
+
+  const activeGoals = createMemo(() => activeSearchResults().items);
 
   const activeResultTotal = createMemo(
     () => activeSearchResults().total ?? activeSearchResults().items.length,
@@ -124,39 +126,33 @@ export default function GoalList(props: GoalListProps) {
     () => archivedSearchResults().items.length,
   );
 
-  const progressMap = createMemo(() => {
-    const map = new Map<string, ReturnType<typeof computeGoalProgress>>();
-    props.goals.forEach((goal) => {
-      map.set(goal._id, computeGoalProgress(goal, props.entries, props.groups, props.trackers));
-    });
-    return map;
-  });
+  const fetchAllProgressData = async (goals: Goal[]) => {
+    const map = new Map<string, GoalProgress>();
 
-  const trackerMap = createMemo(() => {
-    const map = new Map<string, Tracker>();
-    props.trackers.forEach((tracker) => map.set(tracker._id, tracker));
-    return map;
-  });
-
-  const groupMap = createMemo(() => {
-    const map = new Map<string, Group>();
-    props.groups.forEach((group) => map.set(group._id, group));
-    return map;
-  });
-
-  const entriesForGoal = createMemo(() => {
-    const goal = selectedGoal();
-    if (!goal) return [];
-
-    if (goal.groupId) {
-      return props.entries.filter((entry) => entry.groupId === goal.groupId);
+    for (const goal of goals) {
+      const progress = await computeGoalProgress(goal);
+      map.set(goal._id, progress);
     }
+    return map;
+  };
 
-    const trackerSet = new Set(goal.trackerIds);
-    return props.entries.filter((entry) =>
-      entry.data.some((item) => trackerSet.has(item.trackerId)),
-    );
+  const [progressMap] = createResource(activeGoals, fetchAllProgressData, {
+    initialValue: new Map<string, GoalProgress>(),
   });
+
+  const [entriesForGoal] = createResource(
+    () => ({ goal: selectedGoal() }),
+    async ({ goal }) => {
+      if (!goal) return [];
+
+      if (goal.groupId) {
+        return await findByGroupId(goal.groupId);
+      }
+
+      return await findRelevantEntries({ trackerIds: goal.trackerIds });
+    },
+    { initialValue: [] },
+  );
 
   const sortedEntries = createMemo(() =>
     [...entriesForGoal()].sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
@@ -165,16 +161,10 @@ export default function GoalList(props: GoalListProps) {
   return (
     <div class="space-y-6">
       <div class="space-y-3">
-        <SearchInput
-          value={searchQuery()}
-          onInput={handleSearch}
-          placeholder="Search goals..."
-        />
+        <SearchInput value={searchQuery()} onInput={handleSearch} placeholder="Search goals..." />
 
         <div class="flex flex-wrap items-center gap-2">
-          <div class="text-base-content/60 text-sm font-medium uppercase tracking-wide">
-            Period
-          </div>
+          <div class="text-base-content/60 text-sm font-medium tracking-wide uppercase">Period</div>
           <button
             type="button"
             class={`badge badge-lg transition-all ${
@@ -241,34 +231,33 @@ export default function GoalList(props: GoalListProps) {
           when={activeResultTotal() > 0}
           fallback={
             <div class="text-base-content/50 py-8 text-center">
-              <Show
-                when={hasFilters()}
-                fallback={<>No goals yet. Create your first goal below.</>}
-              >
-                <Show when={searchQuery().trim()} fallback={<>No goals match the selected period.</>}>
+              <Show when={hasFilters()} fallback={<>No goals yet. Create your first goal below.</>}>
+                <Show
+                  when={searchQuery().trim()}
+                  fallback={<>No goals match the selected period.</>}
+                >
                   No goals match "{searchQuery()}"
                 </Show>
               </Show>
             </div>
           }
         >
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <For each={activeSearchResults().items}>
-              {(goal, index) => (
-                <GoalCard
-                  goal={goal}
-                  progress={progressMap().get(goal._id)}
-                  archived={false}
-                  index={index()}
-                  onEdit={props.onEdit}
-                  onDelete={props.onDelete}
-                  onToggleArchive={props.onToggleArchive}
-                  onTogglePin={props.onTogglePin}
-                  onView={(item) => setSelectedGoal(item)}
-                />
-              )}
-            </For>
-          </div>
+          <CardList
+            items={activeSearchResults().items}
+            CardComponent={GoalCard}
+            getCardProps={(goal, index) => ({
+              goal,
+              progress: progressMap().get(goal._id),
+              archived: false,
+              index,
+              searchQuery: searchQuery(),
+              onEdit: props.onEdit,
+              onDelete: props.onDelete,
+              onToggleArchive: props.onToggleArchive,
+              onTogglePin: props.onTogglePin,
+              onView: (item) => setSelectedGoal(item),
+            })}
+          />
           <PaginationControls
             hasPrev={activeHasPrev()}
             hasNext={activeHasNext()}
@@ -293,23 +282,22 @@ export default function GoalList(props: GoalListProps) {
               </span>
             </Show>
           </div>
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <For each={archivedSearchResults().items}>
-              {(goal, index) => (
-                <GoalCard
-                  goal={goal}
-                  progress={progressMap().get(goal._id)}
-                  archived
-                  index={index()}
-                  onEdit={props.onEdit}
-                  onDelete={props.onDelete}
-                  onToggleArchive={props.onToggleArchive}
-                  onTogglePin={props.onTogglePin}
-                  onView={(item) => setSelectedGoal(item)}
-                />
-              )}
-            </For>
-          </div>
+          <CardList
+            items={archivedSearchResults().items}
+            CardComponent={GoalCard}
+            getCardProps={(goal, index) => ({
+              goal,
+              progress: progressMap().get(goal._id),
+              archived: true,
+              index,
+              searchQuery: searchQuery(),
+              onEdit: props.onEdit,
+              onDelete: props.onDelete,
+              onToggleArchive: props.onToggleArchive,
+              onTogglePin: props.onTogglePin,
+              onView: (item) => setSelectedGoal(item),
+            })}
+          />
           <PaginationControls
             hasPrev={archivedHasPrev()}
             hasNext={archivedHasNext()}
@@ -318,46 +306,11 @@ export default function GoalList(props: GoalListProps) {
           />
         </div>
       </Show>
-
-      <Show when={selectedGoal()}>
-        <div class="modal modal-open backdrop-blur-sm">
-          <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-4xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
-            <div class="border-base-content/10 flex items-center justify-between border-b px-6 py-4">
-              <div>
-                <div class="text-base-content/60 text-xs font-semibold uppercase tracking-widest">
-                  Goal entries
-                </div>
-                <h3 class="text-xl font-bold">{selectedGoal()!.name}</h3>
-              </div>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                onClick={() => setSelectedGoal(null)}
-                aria-label="Close"
-              >
-                <X class="size-4" />
-              </button>
-            </div>
-            <div class="max-h-[75vh] space-y-4 overflow-y-auto px-6 py-4">
-              <Show
-                when={sortedEntries().length > 0}
-                fallback={
-                  <div class="text-base-content/50 rounded-xl border border-dashed p-6 text-center text-sm">
-                    No entries match this goal yet.
-                  </div>
-                }
-              >
-                <For each={sortedEntries()}>
-                  {(entry) => (
-                    <EntryCard entry={entry} trackerMap={trackerMap()} groupMap={groupMap()} />
-                  )}
-                </For>
-              </Show>
-            </div>
-          </div>
-          <div class="modal-backdrop" onClick={() => setSelectedGoal(null)} />
-        </div>
-      </Show>
+      <GoalShowModal
+        selectedGoal={selectedGoal()}
+        setSelectedGoal={setSelectedGoal}
+        sortedEntries={sortedEntries()}
+      />
     </div>
   );
 }

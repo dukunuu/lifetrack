@@ -1,7 +1,7 @@
-import { BaseRepository } from './base.repository';
-import { generateId, dateString, timestamp } from '../db/utils';
-import type { Entry, EntryData, EntryMedia, PhotoValue, QueryOptions } from '../db/types';
 import { db } from '../db';
+import type { Entry, EntryData, EntryMedia, PhotoValue, QueryOptions } from '../db/types';
+import { dateString, generateId, timestamp } from '../db/utils';
+import { BaseRepository } from './base.repository';
 
 export class EntryRepository extends BaseRepository<Entry> {
   protected prefix = 'entry';
@@ -10,14 +10,26 @@ export class EntryRepository extends BaseRepository<Entry> {
 
   private ensureEntryIndex = async () => {
     if (!this.entryIndexReady) {
-      this.entryIndexReady = db
-        .createIndex({
+      this.entryIndexReady = Promise.all([
+        db.createIndex({
           index: {
             fields: ['_id', 'date'],
             name: 'entries-by-date',
           },
-        })
-        .then(() => undefined);
+        }),
+        db.createIndex({
+          index: {
+            fields: ['date', 'data.trackerId'],
+            name: 'idx-entries-date-trackers',
+          },
+        }),
+        db.createIndex({
+          index: {
+            fields: ['groupId'],
+            name: 'idx-group-id',
+          },
+        }),
+      ]).then(() => undefined);
     }
     return this.entryIndexReady;
   };
@@ -181,6 +193,56 @@ export class EntryRepository extends BaseRepository<Entry> {
     if (patched.length > 0) {
       await db.bulkDocs(patched);
     }
+  }
+
+  async findRelevantEntries(trackerIds: string[], start?: string, end?: string) {
+    await this.ensureEntryIndex();
+
+    const selector: any = {
+      data: {
+        $elemMatch: {
+          trackerId: { $in: trackerIds },
+          skipped: false, // Only get non-skipped data
+        },
+      },
+    };
+
+    if (start && end) {
+      selector.date = { $gte: start, $lte: end };
+    }
+    const result = await db.find({
+      selector,
+      use_index: 'idx-entries-date-trackers',
+    });
+
+    return result.docs as Entry[];
+  }
+
+  async findByGroupId(id: string) {
+    await this.ensureEntryIndex();
+
+    const result = await db.find({
+      selector: {
+        _id: { $gte: this.prefix, $lte: this.prefix },
+        groupId: id,
+      },
+    });
+
+    return result.docs as Entry[];
+  }
+
+  async findInDateRange(start: string, end: string): Promise<Entry[]> {
+    await this.ensureEntryIndex();
+
+    const result = await db.find({
+      selector: {
+        _id: { $gte: 'entry:', $lte: 'entry:\ufff0' },
+        date: { $gte: start, $lte: end },
+      },
+      use_index: 'entries-by-date',
+    });
+
+    return result.docs as Entry[];
   }
 
   private isPhotoValue(value: EntryData['values'][string]): value is PhotoValue {

@@ -1,9 +1,7 @@
-import { Show, For, createMemo } from 'solid-js';
 import { Calendar } from 'lucide-solid';
+import { For, Show, createMemo } from 'solid-js';
+import type { Entry } from '../../lib/db/types';
 import { useEntries } from '../../lib/hooks/useEntries';
-import { useTrackers } from '../../lib/hooks/useTrackers';
-import { useGroups } from '../../lib/hooks/useGroups';
-import type { Tracker, Group, Entry } from '../../lib/db/types';
 import EntryCard from './EntryCard';
 
 export default function EntryFeed() {
@@ -54,20 +52,6 @@ export default function EntryFeed() {
       }
     }
   };
-
-  const { trackers } = useTrackers({ loadAll: true });
-  const trackerMap = createMemo(() => {
-    const map = new Map<string, Tracker>();
-    trackers().forEach((tracker) => map.set(tracker._id, tracker));
-    return map;
-  });
-
-  const { groups } = useGroups();
-  const groupMap = createMemo(() => {
-    const map = new Map<string, Group>();
-    groups().forEach((group) => map.set(group._id, group));
-    return map;
-  });
 
   return (
     <div class="mt-8">
@@ -141,14 +125,7 @@ export default function EntryFeed() {
               {/* Entries for this date */}
               <div class="space-y-3">
                 <For each={dateEntries}>
-                  {(entry) => (
-                    <EntryCard
-                      entry={entry}
-                      trackerMap={trackerMap()}
-                      groupMap={groupMap()}
-                      onDelete={handleDelete}
-                    />
-                  )}
+                  {(entry) => <EntryCard entry={entry} onDelete={handleDelete} />}
                 </For>
               </div>
             </div>

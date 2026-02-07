@@ -1,5 +1,5 @@
-import { Show } from 'solid-js';
-import { Archive, Edit, Folder, Pin, Target, Users, Eye, Trash } from 'lucide-solid';
+import { Archive, Edit, Eye, Folder, Pin, Target, Trash, Users } from 'lucide-solid';
+import { For, Show } from 'solid-js';
 import type { Goal } from '../../lib/db/types';
 import type { GoalProgress } from '../../lib/services/goal-progress';
 
@@ -8,11 +8,33 @@ interface GoalCardProps {
   progress?: GoalProgress;
   archived: boolean;
   index: number;
+  searchQuery?: string;
   onEdit?: (goal: Goal) => void;
   onDelete?: (goal: Goal) => void;
   onToggleArchive?: (goal: Goal) => void;
   onTogglePin?: (goal: Goal) => void;
   onView?: (goal: Goal) => void;
+}
+
+function HighlightText(props: { text: string; query?: string }) {
+  if (!props.query || !props.text.toLowerCase().includes(props.query.toLowerCase())) {
+    return <>{props.text}</>;
+  }
+
+  const parts = props.text.split(new RegExp(`(${props.query})`, 'gi'));
+  return (
+    <>
+      <For each={parts}>
+        {(part) =>
+          part.toLowerCase() === props.query?.toLowerCase() ? (
+            <mark class="bg-primary/30 rounded px-0.5">{part}</mark>
+          ) : (
+            <>{part}</>
+          )
+        }
+      </For>
+    </>
+  );
 }
 
 export default function GoalCard(props: GoalCardProps) {
@@ -43,9 +65,13 @@ export default function GoalCard(props: GoalCardProps) {
               </Show>
             </div>
             <div class="min-w-0">
-              <h3 class="truncate text-lg font-semibold">{goal.name}</h3>
+              <h3 class="truncate text-lg font-semibold">
+                <HighlightText text={goal.name} query={props.searchQuery} />
+              </h3>
               <Show when={goal.description}>
-                <p class="text-base-content/60 mt-1 line-clamp-2 text-sm">{goal.description}</p>
+                <p class="text-base-content/60 mt-1 line-clamp-2 text-sm">
+                  <HighlightText text={goal.description || ''} query={props.searchQuery} />
+                </p>
               </Show>
               <div class="text-base-content/60 mt-2 flex min-w-0 flex-wrap gap-2 text-xs">
                 <span class="badge badge-outline badge-sm">{goal.type}</span>

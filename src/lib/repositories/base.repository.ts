@@ -108,5 +108,4 @@ export abstract class BaseRepository<T extends BaseDocument> implements Reposito
 
     return () => changes.cancel();
   }
-
 }

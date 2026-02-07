@@ -47,10 +47,9 @@ const formatEntryValues = (item: EntryData, tracker?: Tracker) => {
     })
     .filter((part): part is string => Boolean(part));
 
-  const flags = [
-    item.completed ? 'done' : null,
-    item.skipped ? 'skip' : null,
-  ].filter((flag): flag is string => Boolean(flag));
+  const flags = [item.completed ? 'done' : null, item.skipped ? 'skip' : null].filter(
+    (flag): flag is string => Boolean(flag),
+  );
 
   const suffix = parts.length > 0 ? `: ${parts.join(', ')}` : '';
   const flagSuffix = flags.length > 0 ? ` (${flags.join(', ')})` : '';
@@ -114,140 +113,145 @@ export default function SessionHistory() {
             {(session) => {
               const isChat = session.type === 'ai';
               return (
-              <div
-                class="border-base-300/50 bg-base-200/50 rounded-xl border px-4 py-3"
-                style={{
-                  'border-left': session.groupId
-                    ? `2px solid ${groupMap().get(session.groupId)?.color ?? 'transparent'}`
-                    : undefined,
-                }}
-              >
-                <div class="flex flex-wrap items-center justify-between gap-4">
-                  <div class="min-w-0">
-                    <div class="text-base-content/80 text-sm font-semibold">
-                      {session.name || (isChat ? 'AI Chat' : session.type)}
+                <div
+                  class="border-base-300/50 bg-base-200/50 rounded-xl border px-4 py-3"
+                  style={{
+                    'border-left': session.groupId
+                      ? `2px solid ${groupMap().get(session.groupId)?.color ?? 'transparent'}`
+                      : undefined,
+                  }}
+                >
+                  <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="min-w-0">
+                      <div class="text-base-content/80 text-sm font-semibold">
+                        {session.name || (isChat ? 'AI Chat' : session.type)}
+                      </div>
+                      <div class="text-base-content/50 text-xs">
+                        {isChat
+                          ? 'Conversation'
+                          : session.groupId
+                            ? (groupMap().get(session.groupId)?.name ?? 'Unknown group')
+                            : 'No group'}
+                      </div>
                     </div>
-                    <div class="text-base-content/50 text-xs">
-                      {isChat
-                        ? 'Conversation'
-                        : session.groupId
-                          ? groupMap().get(session.groupId)?.name ?? 'Unknown group'
-                          : 'No group'}
-                    </div>
-                  </div>
 
-                  <div class="text-base-content/60 flex flex-wrap items-center gap-4 text-xs">
-                    <span class="flex items-center gap-1">
-                      <Clock4 class="size-3" />
-                      {formatDateTime(session.startTime)}
-                    </span>
-                    <Show when={session.summary?.duration}>
+                    <div class="text-base-content/60 flex flex-wrap items-center gap-4 text-xs">
                       <span class="flex items-center gap-1">
                         <Clock4 class="size-3" />
-                        {formatDuration(session.summary!.duration)}
+                        {formatDateTime(session.startTime)}
                       </span>
-                    </Show>
-                    <span class="flex items-center gap-1">
-                      <Show
-                        when={session.status === 'completed'}
-                        fallback={
-                          session.status === 'active' ? (
-                            <Clock4 class="text-info size-3" />
-                          ) : (
-                            <CircleX class="text-error size-3" />
-                          )
+                      <Show when={session.summary?.duration}>
+                        <span class="flex items-center gap-1">
+                          <Clock4 class="size-3" />
+                          {formatDuration(session.summary!.duration)}
+                        </span>
+                      </Show>
+                      <span class="flex items-center gap-1">
+                        <Show
+                          when={session.status === 'completed'}
+                          fallback={
+                            session.status === 'active' ? (
+                              <Clock4 class="text-info size-3" />
+                            ) : (
+                              <CircleX class="text-error size-3" />
+                            )
+                          }
+                        >
+                          <CheckCircle2 class="text-success size-3" />
+                        </Show>
+                        {session.status}
+                      </span>
+                      <Show when={session.summary?.entryCount !== undefined}>
+                        <span class="tabular-nums">{session.summary!.entryCount} entries</span>
+                      </Show>
+                    </div>
+                  </div>
+
+                  <div class="mt-3 flex flex-wrap items-center gap-3">
+                    <Show when={!isChat}>
+                      <button
+                        class="text-base-content/60 hover:text-base-content flex items-center gap-2 text-xs transition-colors"
+                        onClick={() =>
+                          setExpandedId(expandedId() === session._id ? null : session._id)
                         }
                       >
-                        <CheckCircle2 class="text-success size-3" />
-                      </Show>
-                      {session.status}
-                    </span>
-                    <Show when={session.summary?.entryCount !== undefined}>
-                      <span class="tabular-nums">{session.summary!.entryCount} entries</span>
+                        <span>
+                          {expandedId() === session._id ? 'Hide entries' : 'View entries'}
+                        </span>
+                        <ChevronDown
+                          class={`size-4 transition-transform ${expandedId() === session._id ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                    </Show>
+                    <Show when={isChat}>
+                      <A class="btn btn-ghost btn-xs" href={`/sessions/${session._id}`}>
+                        Open chat
+                      </A>
                     </Show>
                   </div>
-                </div>
 
-                <div class="mt-3 flex flex-wrap items-center gap-3">
-                  <Show when={!isChat}>
-                    <button
-                      class="text-base-content/60 hover:text-base-content flex items-center gap-2 text-xs transition-colors"
-                      onClick={() =>
-                        setExpandedId(expandedId() === session._id ? null : session._id)
-                      }
-                    >
-                      <span>{expandedId() === session._id ? 'Hide entries' : 'View entries'}</span>
-                      <ChevronDown
-                        class={`size-4 transition-transform ${expandedId() === session._id ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-                  </Show>
-                  <Show when={isChat}>
-                    <A class="btn btn-ghost btn-xs" href={`/sessions/${session._id}`}>
-                      Open chat
-                    </A>
-                  </Show>
-                </div>
-
-                <Show when={!isChat && expandedId() === session._id}>
-                  <div class="border-base-300/50 mt-4 border-t pt-4">
-                    <div class="space-y-3">
-                      <Show
-                        when={(entriesBySession().get(session._id) ?? []).length > 0}
-                        fallback={
-                          <Show
-                            when={(session.pendingData ?? []).length > 0}
-                            fallback={
-                              <div class="text-base-content/50 text-xs">
-                                No entries logged yet.
-                              </div>
-                            }
-                          >
-                            <div class="text-base-content/50 text-xs">Pending entries</div>
-                            <div class="space-y-2">
-                              <For each={session.pendingData ?? []}>
-                                {(item) => (
-                                  <div class="bg-base-200/60 border-base-300/40 rounded-lg border px-3 py-2 text-xs">
-                                    <span class="font-semibold">#{item.trackerTag}</span>
-                                    <span class="text-base-content/60">
-                                      {formatEntryValues(item, trackerMap().get(item.trackerId))}
-                                    </span>
-                                  </div>
-                                )}
-                              </For>
-                            </div>
-                          </Show>
-                        }
-                      >
-                        <For each={entriesBySession().get(session._id) ?? []}>
-                          {(entry) => (
-                            <div class="bg-base-200/60 border-base-300/40 rounded-lg border px-3 py-2">
-                              <div class="text-base-content/60 text-xs">
-                                {formatDateTime(entry.timestamp)}
-                              </div>
-                              <div class="mt-2 flex flex-wrap gap-2 text-xs">
-                                <For each={entry.data}>
+                  <Show when={!isChat && expandedId() === session._id}>
+                    <div class="border-base-300/50 mt-4 border-t pt-4">
+                      <div class="space-y-3">
+                        <Show
+                          when={(entriesBySession().get(session._id) ?? []).length > 0}
+                          fallback={
+                            <Show
+                              when={(session.pendingData ?? []).length > 0}
+                              fallback={
+                                <div class="text-base-content/50 text-xs">
+                                  No entries logged yet.
+                                </div>
+                              }
+                            >
+                              <div class="text-base-content/50 text-xs">Pending entries</div>
+                              <div class="space-y-2">
+                                <For each={session.pendingData ?? []}>
                                   {(item) => (
-                                    <span class="bg-base-100/70 border-base-300/50 text-base-content/80 rounded-full border px-2 py-1">
+                                    <div class="bg-base-200/60 border-base-300/40 rounded-lg border px-3 py-2 text-xs">
                                       <span class="font-semibold">#{item.trackerTag}</span>
                                       <span class="text-base-content/60">
                                         {formatEntryValues(item, trackerMap().get(item.trackerId))}
                                       </span>
-                                    </span>
+                                    </div>
                                   )}
                                 </For>
                               </div>
-                              <Show when={entry.note}>
-                                <div class="text-base-content/60 mt-2 text-xs">{entry.note}</div>
-                              </Show>
-                            </div>
-                          )}
-                        </For>
-                      </Show>
+                            </Show>
+                          }
+                        >
+                          <For each={entriesBySession().get(session._id) ?? []}>
+                            {(entry) => (
+                              <div class="bg-base-200/60 border-base-300/40 rounded-lg border px-3 py-2">
+                                <div class="text-base-content/60 text-xs">
+                                  {formatDateTime(entry.timestamp)}
+                                </div>
+                                <div class="mt-2 flex flex-wrap gap-2 text-xs">
+                                  <For each={entry.data}>
+                                    {(item) => (
+                                      <span class="bg-base-100/70 border-base-300/50 text-base-content/80 rounded-full border px-2 py-1">
+                                        <span class="font-semibold">#{item.trackerTag}</span>
+                                        <span class="text-base-content/60">
+                                          {formatEntryValues(
+                                            item,
+                                            trackerMap().get(item.trackerId),
+                                          )}
+                                        </span>
+                                      </span>
+                                    )}
+                                  </For>
+                                </div>
+                                <Show when={entry.note}>
+                                  <div class="text-base-content/60 mt-2 text-xs">{entry.note}</div>
+                                </Show>
+                              </div>
+                            )}
+                          </For>
+                        </Show>
+                      </div>
                     </div>
-                  </div>
-                </Show>
-              </div>
+                  </Show>
+                </div>
               );
             }}
           </For>

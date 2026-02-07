@@ -1,37 +1,52 @@
-import { Show, createMemo } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
-import { useGoals } from '../lib/hooks/useGoals';
-import { useGroups } from '../lib/hooks/useGroups';
-import { useTrackers } from '../lib/hooks/useTrackers';
-import { useEntriesAll } from '../lib/hooks/useEntriesAll';
+import { Plus } from 'lucide-solid';
+import { Show, createMemo, createResource } from 'solid-js';
+import { SkeletonList } from '../components/common/Skeleton';
 import GoalFormV2 from '../components/goals/GoalFormV2';
 import GoalList from '../components/goals/GoalList';
 import PageShell from '../components/layout/PageShell';
 import type { Goal } from '../lib/db/types';
-import { Plus } from 'lucide-solid';
+import { useGoals } from '../lib/hooks/useGoals';
+import { useGroups } from '../lib/hooks/useGroups';
+import { useTrackers } from '../lib/hooks/useTrackers';
 
 export default function Goals() {
-  const { goals, loading: goalsLoading, createGoal, updateGoal, deleteGoal, searchGoals } =
-    useGoals();
+  const {
+    loading: goalsLoading,
+    createGoal,
+    updateGoal,
+    deleteGoal,
+    searchGoals,
+    findGoalById,
+    goalRevision,
+    findPinnedGoals,
+  } = useGoals();
   const { groups, loading: groupsLoading } = useGroups();
   const { trackers, loading: trackersLoading } = useTrackers({ loadAll: true });
-  const { entries, loading: entriesLoading } = useEntriesAll();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const createType = createMemo(() => searchParams.create as 'goal' | undefined);
-  const editId = createMemo(() => searchParams.edit);
+  const action = createMemo(() => searchParams.action as 'create' | 'edit' | undefined);
+  const editId = createMemo(() =>
+    typeof searchParams.id === 'string' ? searchParams.id : undefined,
+  );
 
-  const editingGoal = createMemo(() => {
-    if (editId()) {
-      return goals().find((goal) => goal._id === editId());
-    }
-    return undefined;
-  });
+  const [editingGoal] = createResource(
+    () => ({
+      id: action() === 'edit' ? editId() : undefined,
+      revision: goalRevision(),
+    }),
+    async (source) => {
+      if (source.id) {
+        return (await findGoalById(source.id)) ?? undefined;
+      }
+      return undefined;
+    },
+  );
 
-  const showModal = createMemo(() => createType() === 'goal' || !!editingGoal());
+  const showModal = createMemo(() => !!action());
 
   const closeModal = () => {
-    setSearchParams({ create: undefined, edit: undefined });
+    setSearchParams({ action: undefined, id: undefined });
   };
 
   const handleCreateGoal = async (data: Omit<Goal, '_id' | '_rev' | 'createdAt' | 'updatedAt'>) => {
@@ -59,8 +74,8 @@ export default function Goals() {
 
   const handleTogglePin = async (goal: Goal) => {
     if (!goal.pinned) {
-      const pinnedCount = goals().filter((item) => item.pinned && !item.archived).length;
-      if (pinnedCount >= 15) {
+      const pinnedCount = await findPinnedGoals();
+      if (pinnedCount.length >= 15) {
         alert('You can pin up to 15 goals.');
         return;
       }
@@ -68,7 +83,7 @@ export default function Goals() {
     await updateGoal(goal._id, { pinned: !goal.pinned });
   };
 
-  const loading = () => goalsLoading() || groupsLoading() || trackersLoading() || entriesLoading();
+  const loading = () => goalsLoading() || groupsLoading() || trackersLoading();
 
   return (
     <PageShell
@@ -77,13 +92,13 @@ export default function Goals() {
       fab={{
         label: 'New Goal',
         icon: <Plus size={28} />,
-        onClick: () => setSearchParams({ create: 'goal' }),
+        onClick: () => setSearchParams({ action: 'create' }),
       }}
       after={
         <Show when={showModal()}>
           <div class="modal modal-open backdrop-blur-sm">
             <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-5xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
-              <Show when={createType() === 'goal'}>
+              <Show when={action() === 'create'}>
                 <GoalFormV2
                   groups={groups()}
                   trackers={trackers()}
@@ -107,17 +122,14 @@ export default function Goals() {
       }
     >
       <Show when={loading()}>
-        <div class="flex items-center justify-center py-20">
-          <span class="loading loading-spinner loading-lg text-primary"></span>
+        <div class="animate-fade-in">
+          <SkeletonList type="goal" count={3} />
         </div>
       </Show>
 
       <Show when={!loading()}>
         <GoalList
-          goals={goals()}
-          groups={groups()}
-          trackers={trackers()}
-          entries={entries()}
+          revision={goalRevision()}
           searchGoals={searchGoals}
           onEdit={(goal) => setSearchParams({ edit: goal._id })}
           onDelete={handleDeleteGoal}
