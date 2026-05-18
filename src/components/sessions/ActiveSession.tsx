@@ -1,8 +1,8 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import { Activity, CheckCircle2, XCircle } from 'lucide-solid';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import type { Group } from '../../lib/db/types';
 import { useGroups } from '../../lib/hooks/useGroups';
 import { useSession } from '../../lib/hooks/useSession';
-import type { Group } from '../../lib/db/types';
 import GlobalInput from '../common/GlobalInput';
 
 const formatDuration = (totalSeconds: number) => {
@@ -73,7 +73,7 @@ export default function ActiveSession() {
 
   return (
     <div
-      class="border-base-300/70 bg-base-200/70 mb-8 rounded-2xl border p-3 shadow-md sm:p-6"
+      class="glass-card glass-topline rounded-2xl p-3 sm:p-6"
       style={{
         'border-left': activeGroupColor() ? `2px solid ${activeGroupColor()}` : undefined,
       }}
@@ -92,7 +92,7 @@ export default function ActiveSession() {
         when={!loading() && activeSession()}
         keyed
         fallback={
-          <div class="border-base-300/70 bg-base-100/60 rounded-xl border p-4">
+          <div class="glass-card rounded-xl p-4">
             <form class="space-y-4" onSubmit={handleStart}>
               <div class="grid gap-4 md:grid-cols-2">
                 <label class="form-control gap-2">
@@ -100,7 +100,7 @@ export default function ActiveSession() {
                     Group (required)
                   </span>
                   <select
-                    class="select select-bordered bg-base-100/60 border-base-300/60"
+                    class="select select-bordered glass-input"
                     value={groupId()}
                     onInput={(e) => setGroupId(e.currentTarget.value)}
                   >
@@ -116,7 +116,7 @@ export default function ActiveSession() {
                     Session name
                   </span>
                   <input
-                    class="input input-bordered bg-base-100/60 border-base-300/60"
+                    class="input input-bordered glass-input"
                     value={name()}
                     onInput={(e) => setName(e.currentTarget.value)}
                     placeholder="Morning Push Day"
@@ -138,8 +138,8 @@ export default function ActiveSession() {
         }
       >
         {(session) => (
-          <div class="border-base-300/70 bg-base-100/60 space-y-4 rounded-xl border p-4">
-            <div class="bg-base-100/50 border-base-300/50 flex w-full flex-col items-center justify-between gap-4 rounded-xl border px-4 py-3 sm:flex-row">
+          <div class="glass-card space-y-4 rounded-xl p-4">
+            <div class="glass-card flex w-full flex-col items-center justify-between gap-4 rounded-xl px-4 py-3 sm:flex-row">
               <div class="flex w-full flex-2 items-center gap-3">
                 <div
                   class="bg-base-200 flex size-12 items-center justify-center rounded-2xl"
@@ -150,7 +150,8 @@ export default function ActiveSession() {
                   <Activity class="size-5" />
                 </div>
                 <div>
-                  <div class="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+                  <div class="text-base-content/60 flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
+                    <span class="bg-success inline-flex size-2 animate-pulse rounded-full shadow-[0_0_10px_oklch(var(--su)/0.9)]"></span>
                     Active Session
                   </div>
                   <div class="text-base-content text-lg font-semibold">
@@ -184,7 +185,7 @@ export default function ActiveSession() {
                 Notes
               </span>
               <GlobalInput
-                class="bg-base-100/60 border-base-300/60"
+                class="glass-input"
                 value={notes()}
                 onInput={(e) => setNotes(e.currentTarget.value)}
                 placeholder="Optional session notes..."

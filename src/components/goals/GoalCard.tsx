@@ -47,7 +47,7 @@ export default function GoalCard(props: GoalCardProps) {
 
   return (
     <div
-      class={`accent-card card bg-base-300/80 border-base-content/10 animate-fade-in-up border shadow-md transition-all duration-300 hover:shadow-xl ${
+      class={`accent-card glass-card hover-lift card animate-fade-in-up transition-all duration-300 ${
         props.archived ? 'opacity-60 hover:opacity-80' : ''
       }`}
       style={{
@@ -59,7 +59,7 @@ export default function GoalCard(props: GoalCardProps) {
       <div class="card-body">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex min-w-0 items-start gap-3">
-            <div class="flex h-11 w-11 items-center justify-center rounded-2xl">
+            <div class="glass-card flex h-11 w-11 items-center justify-center rounded-2xl">
               <Show when={goal.icon} fallback={<Target size={20} class="text-primary" />}>
                 <span class="text-2xl leading-none">{goal.icon}</span>
               </Show>
@@ -143,6 +143,7 @@ export default function GoalCard(props: GoalCardProps) {
               style={{
                 width: `${progress?.percent ?? 0}%`,
                 'background-color': goal.color || 'var(--fallback-p,oklch(var(--p)))',
+                'box-shadow': goal.color ? `0 0 14px ${goal.color}` : undefined,
               }}
             />
           </div>

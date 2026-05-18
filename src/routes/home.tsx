@@ -47,7 +47,7 @@ export default function Home() {
   return (
     <div class="bg-base-100 min-h-screen">
       <div class="container mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <div class="mb-6 sm:mb-8">
+        <div class="glass-card mb-6 rounded-2xl px-5 py-4 sm:mb-8 sm:px-6 sm:py-5">
           <h1 class="from-primary to-secondary mb-2 bg-gradient-to-r bg-clip-text text-3xl font-bold text-transparent sm:text-4xl">
             Dashboard
           </h1>
@@ -56,21 +56,44 @@ export default function Home() {
           </p>
         </div>
 
-        <div class="space-y-8">
-          <Reveal>
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
+          <Reveal class="md:col-span-2 lg:col-span-8">
             <QuickAdd />
           </Reveal>
 
-          <Reveal delay={60}>
+          <Reveal class="md:col-span-2 lg:col-span-4" delay={70}>
+            <div class="glass-card glass-topline h-full rounded-2xl p-4 sm:p-5">
+              <div class="section-kicker mb-2">Command Center</div>
+              <p class="text-base-content/80 text-sm leading-relaxed">
+                Quick Add plus session tracking turn this dashboard into your daily control panel.
+              </p>
+              <div class="mt-5 grid gap-3">
+                <div class="glass-card rounded-xl px-3 py-2">
+                  <div class="text-base-content/50 text-[11px] tracking-widest uppercase">
+                    Pinned Goals
+                  </div>
+                  <div class="text-lg font-semibold tabular-nums">{pinnedGoals().length}/15</div>
+                </div>
+                <div class="glass-card rounded-xl px-3 py-2">
+                  <div class="text-base-content/50 text-[11px] tracking-widest uppercase">
+                    Focus
+                  </div>
+                  <div class="text-base-content/80 text-sm">
+                    Stay in flow with sessions and rapid logging.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal class="md:col-span-2 lg:col-span-6" delay={110}>
             <ActiveSession />
           </Reveal>
 
-          <Reveal delay={120}>
-            <div>
+          <Reveal class="md:col-span-2 lg:col-span-6" delay={140}>
+            <div class="glass-card glass-topline rounded-2xl p-4 sm:p-5">
               <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <h2 class="text-base-content/40 text-xs font-bold tracking-widest uppercase">
-                  Pinned Goals
-                </h2>
+                <h2 class="section-kicker">Pinned Goals</h2>
                 <span class="text-base-content/40 text-xs">
                   Pin up to 15 goals from the Goals page
                 </span>
@@ -79,7 +102,7 @@ export default function Home() {
               <Show
                 when={pinnedGoals().length > 0}
                 fallback={
-                  <div class="border-base-300/70 bg-base-200/70 text-base-content/60 rounded-2xl border p-6 text-sm shadow-md">
+                  <div class="glass-card animate-shimmer text-base-content/60 rounded-2xl p-6 text-sm">
                     No pinned goals yet.
                   </div>
                 }
@@ -88,7 +111,7 @@ export default function Home() {
                   <For each={pinnedProgress()}>
                     {(item, index) => (
                       <div
-                        class="carousel-item accent-card group bg-base-200/80 border-base-300/70 animate-fade-in-up relative w-72 overflow-hidden rounded-2xl border shadow-lg transition-all duration-300 sm:w-80"
+                        class="carousel-item glass-card hover-lift accent-card group animate-fade-in-up relative w-72 overflow-hidden rounded-2xl transition-all duration-300 sm:w-80"
                         style={{
                           'border-left': item.goal.color
                             ? `2px solid ${item.goal.color}`
@@ -97,11 +120,11 @@ export default function Home() {
                           'animation-delay': `${index() * 80}ms`,
                         }}
                       >
-                        <div class="bg-primary/5 group-hover:bg-primary/10 absolute top-0 right-0 h-28 w-28 rounded-full blur-2xl transition-colors"></div>
+                        <div class="bg-primary/8 group-hover:bg-primary/14 absolute top-0 right-0 h-28 w-28 rounded-full blur-2xl transition-colors"></div>
                         <div class="relative space-y-3 p-5">
                           <div class="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                             <div class="flex min-w-0 flex-1 items-center gap-3">
-                              <div class="flex size-10 items-center justify-center rounded-xl">
+                              <div class="glass-card flex size-10 items-center justify-center rounded-xl">
                                 <Show
                                   when={item.goal.icon}
                                   fallback={<Target class="text-primary size-5" />}
@@ -139,6 +162,9 @@ export default function Home() {
                                   width: `${item.progress.percent}%`,
                                   'background-color':
                                     item.goal.color || 'var(--fallback-p,oklch(var(--p)))',
+                                  'box-shadow': item.goal.color
+                                    ? `0 0 14px ${item.goal.color}`
+                                    : undefined,
                                 }}
                               />
                             </div>
@@ -156,7 +182,7 @@ export default function Home() {
             </div>
           </Reveal>
 
-          <Reveal delay={180}>
+          <Reveal class="md:col-span-2 lg:col-span-12" delay={180}>
             <EntryFeed />
           </Reveal>
         </div>
@@ -165,7 +191,7 @@ export default function Home() {
   );
 }
 
-function Reveal(props: { children: any; delay?: number }) {
+function Reveal(props: { children: any; delay?: number; class?: string }) {
   const [visible, setVisible] = createSignal(false);
   let ref: HTMLDivElement | undefined;
 
@@ -188,7 +214,7 @@ function Reveal(props: { children: any; delay?: number }) {
   return (
     <div
       ref={ref}
-      class="reveal"
+      class={`reveal ${props.class ?? ''}`}
       classList={{ 'is-visible': visible() }}
       style={{ 'transition-delay': props.delay ? `${props.delay}ms` : undefined }}
     >

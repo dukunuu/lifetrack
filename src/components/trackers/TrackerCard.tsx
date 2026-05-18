@@ -44,8 +44,8 @@ export default function TrackerCard(props: TrackerCardProps) {
     <div
       class={
         isArchived()
-          ? 'card bg-base-300/40 border-base-content/5 animate-fade-in-up border opacity-60 shadow-sm transition-all duration-300 hover:opacity-80'
-          : 'accent-card card bg-base-300/80 border-base-content/10 animate-fade-in-up border shadow-md transition-all duration-300 hover:shadow-xl'
+          ? 'glass-card card animate-fade-in-up opacity-60 transition-all duration-300 hover:opacity-80'
+          : 'accent-card glass-card hover-lift card animate-fade-in-up transition-all duration-300'
       }
       style={{
         'border-left':
@@ -57,7 +57,7 @@ export default function TrackerCard(props: TrackerCardProps) {
       <div class="card-body">
         <div class="flex items-start justify-between">
           <div class="flex items-center gap-2">
-            <div class="bg-base-200 text-base-content/60 grid h-10 w-10 place-items-center rounded-xl">
+            <div class="glass-card text-base-content/60 grid h-10 w-10 place-items-center rounded-xl">
               <Hash class="size-5" />
             </div>
             <div>
@@ -100,7 +100,7 @@ export default function TrackerCard(props: TrackerCardProps) {
           </div>
         </Show>
 
-        <div class="card-actions border-base-content/5 mt-2 justify-end border-t pt-2">
+        <div class="card-actions border-base-content/10 mt-2 justify-end border-t pt-2">
           <Show when={!isArchived()}>
             <button
               class="btn btn-ghost btn-sm hover:bg-primary/10 hover:text-primary transition-colors"

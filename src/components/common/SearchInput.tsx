@@ -14,7 +14,7 @@ export default function SearchInput(props: SearchInputProps) {
   const [localValue, setLocalValue] = createSignal(props.value);
   const paddingClass = () => (props.icon ? 'pl-12' : 'pl-4');
   const inputClass = () =>
-    `input input-bordered w-full ${paddingClass()} bg-base-300/50 border-base-content/10 focus:border-primary/50 focus:bg-base-300 transition-all ${
+    `input input-bordered glass-input w-full ${paddingClass()} transition-all ${
       props.inputClass || ''
     }`;
 

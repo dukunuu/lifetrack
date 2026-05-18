@@ -1,9 +1,9 @@
-import { For, Show, createSignal, onCleanup, onMount, type ParentComponent } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
-import { Home, Target, TrendingUp, History, Settings, Menu, Zap, X } from 'lucide-solid';
-import QuickAdd from '../entries/QuickAdd';
+import { History, Home, Menu, Settings, Target, TrendingUp, X, Zap } from 'lucide-solid';
+import { For, type ParentComponent, Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { useSettings } from '../../lib/hooks/useSettings';
 import { useSync } from '../../lib/hooks/useSync';
+import QuickAdd from '../entries/QuickAdd';
 
 const routes = [
   { href: '/', label: 'Dashboard', icon: Home, end: true },
@@ -64,7 +64,7 @@ const Layout: ParentComponent = (props) => {
 
       {/* Main content */}
       <div
-        class="drawer-content bg-base-100 flex min-h-screen flex-col"
+        class="drawer-content bg-base-100 relative flex min-h-screen flex-col"
         classList={{
           'has-quickadd': showDockedQuickAdd(),
           'has-quickadd-fab': showQuickAddFab(),
@@ -92,7 +92,7 @@ const Layout: ParentComponent = (props) => {
         <Show when={showQuickAddFab()}>
           <button
             type="button"
-            class="btn btn-primary btn-circle fab-quickadd-offset fixed z-20 shadow-lg"
+            class="btn btn-primary btn-circle glass-card-raised fab-quickadd-offset fixed z-20 border-0 shadow-xl"
             classList={{
               [quickAddFabPositionClass()]: true,
             }}
@@ -127,21 +127,21 @@ const Layout: ParentComponent = (props) => {
       <div class="drawer-side is-drawer-close:overflow-visible z-[999]">
         <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
 
-        <div class="bg-base-300 border-base-content/10 is-drawer-close:w-16 is-drawer-open:w-64 transition-cinematic flex min-h-full flex-col border-r transition-[width] duration-300">
+        <div class="glass-sidebar is-drawer-close:w-16 is-drawer-open:w-64 transition-cinematic flex min-h-full flex-col transition-[width] duration-300">
           {/* Header */}
           <div class="is-drawer-close:pl-3 is-drawer-open:px-4 relative py-8">
             <div class="is-drawer-open:gap-3 flex items-center">
               <label for="app-drawer" aria-label="toggle sidebar" class="shrink-0 cursor-pointer">
                 <div class="relative">
-                  <div class="bg-primary/20 absolute inset-0 rounded-full blur-md"></div>
-                  <div class="from-primary/90 to-secondary/90 relative flex size-10 items-center justify-center rounded-xl bg-linear-to-br shadow-lg transition-shadow hover:shadow-xl">
+                  <div class="bg-primary/30 animate-glow-pulse absolute inset-0 rounded-full blur-md"></div>
+                  <div class="glass-card-raised from-primary/90 to-secondary/90 relative flex size-10 items-center justify-center rounded-xl border-0 bg-linear-to-br shadow-xl transition-shadow hover:shadow-2xl">
                     <TrendingUp class="text-base-100 size-5 stroke-[2.5]" />
                   </div>
                 </div>
               </label>
 
               <div class="is-drawer-close:opacity-0 is-drawer-close:w-0 is-drawer-open:opacity-100 flex flex-1 flex-col overflow-hidden transition-opacity duration-300">
-                <span class="from-primary to-secondary bg-linear-to-r bg-clip-text text-xl font-black tracking-tight whitespace-nowrap text-transparent">
+                <span class="from-primary via-secondary to-primary animate-[pulse_6s_ease-in-out_infinite] bg-linear-to-r bg-[length:200%_100%] bg-clip-text text-xl font-black tracking-tight whitespace-nowrap text-transparent">
                   LIFETRACK
                 </span>
                 <span class="text-base-content/40 text-[10px] font-semibold tracking-widest text-nowrap uppercase">
@@ -189,10 +189,10 @@ const Layout: ParentComponent = (props) => {
                     <li>
                       <A
                         href={route.href}
-                        class="group is-drawer-close:pl-3 is-drawer-open:px-3 is-drawer-close:tooltip is-drawer-close:tooltip-right is-drawer-open:gap-3 relative flex items-center rounded-xl py-2.5 transition-all duration-200"
+                        class="group glass-topline is-drawer-close:pl-3 is-drawer-open:px-3 is-drawer-close:tooltip is-drawer-close:tooltip-right is-drawer-open:gap-3 relative flex items-center rounded-xl py-2.5 transition-all duration-300"
                         classList={{
-                          'bg-primary/10 text-primary': isActive(),
-                          'text-base-content/70 hover:text-base-content hover:bg-base-200':
+                          'glass-card text-primary shadow-lg': isActive(),
+                          'text-base-content/70 hover:text-base-content hover:bg-base-200/40':
                             !isActive(),
                         }}
                         data-tip={route.label}
@@ -210,7 +210,7 @@ const Layout: ParentComponent = (props) => {
                           {route.label}
                         </span>
                         {isActive() && (
-                          <div class="bg-primary is-drawer-close:opacity-0 is-drawer-open:opacity-100 absolute top-1/2 left-0 h-6 w-1 -translate-y-1/2 rounded-r-full transition-opacity duration-300"></div>
+                          <div class="bg-primary is-drawer-close:opacity-0 is-drawer-open:opacity-100 absolute top-1/2 left-0 h-6 w-1 -translate-y-1/2 rounded-r-full shadow-[0_0_18px_oklch(var(--p)/0.8)] transition-opacity duration-300"></div>
                         )}
                       </A>
                     </li>
@@ -224,10 +224,10 @@ const Layout: ParentComponent = (props) => {
           <div class="border-base-300/30 mt-auto border-t p-3">
             <A
               href={settingsRoute.href}
-              class="group is-drawer-close:pl-3 is-drawer-open:px-3 is-drawer-close:tooltip is-drawer-close:tooltip-right is-drawer-open:gap-3 relative flex items-center rounded-xl py-2.5 transition-all duration-200"
+              class="group glass-topline is-drawer-close:pl-3 is-drawer-open:px-3 is-drawer-close:tooltip is-drawer-close:tooltip-right is-drawer-open:gap-3 relative flex items-center rounded-xl py-2.5 transition-all duration-300"
               classList={{
-                'bg-primary/10 text-primary': location.pathname === settingsRoute.href,
-                'text-base-content/70 hover:text-base-content hover:bg-base-200':
+                'glass-card text-primary shadow-lg': location.pathname === settingsRoute.href,
+                'text-base-content/70 hover:text-base-content hover:bg-base-200/40':
                   location.pathname !== settingsRoute.href,
               }}
               data-tip={settingsRoute.label}
@@ -244,7 +244,7 @@ const Layout: ParentComponent = (props) => {
                 {settingsRoute.label}
               </span>
               {location.pathname === settingsRoute.href && (
-                <div class="bg-primary is-drawer-close:opacity-0 is-drawer-open:opacity-100 absolute top-1/2 left-0 h-6 w-1 -translate-y-1/2 rounded-r-full transition-opacity duration-300"></div>
+                <div class="bg-primary is-drawer-close:opacity-0 is-drawer-open:opacity-100 absolute top-1/2 left-0 h-6 w-1 -translate-y-1/2 rounded-r-full shadow-[0_0_18px_oklch(var(--p)/0.8)] transition-opacity duration-300"></div>
               )}
             </A>
           </div>

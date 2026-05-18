@@ -54,12 +54,10 @@ export default function EntryFeed() {
   };
 
   return (
-    <div class="mt-8">
+    <div class="glass-card glass-topline mt-2 rounded-2xl p-4 sm:p-6">
       {/* Header */}
       <div class="mb-6 flex items-center justify-between">
-        <h2 class="text-base-content/40 text-xs font-bold tracking-widest uppercase">
-          Recent Entries
-        </h2>
+        <h2 class="section-kicker">Recent Entries</h2>
         <Show when={!loading() && total() > 0}>
           <div class="badge badge-ghost">
             {entries().length} of {total()}
@@ -97,7 +95,7 @@ export default function EntryFeed() {
 
       {/* Empty State */}
       <Show when={!loading() && entries().length === 0}>
-        <div class="hero bg-base-200 rounded-box min-h-[300px]">
+        <div class="glass-card hero rounded-box min-h-[300px]">
           <div class="hero-content text-center">
             <div class="max-w-md">
               <Calendar class="text-base-content/20 mx-auto mb-4 size-16" />
@@ -118,8 +116,10 @@ export default function EntryFeed() {
                 <h3 class="text-base-content/80 flex-shrink-0 text-sm font-bold">
                   {formatDateHeader(date)}
                 </h3>
-                <div class="divider divider-horizontal m-0"></div>
-                <div class="from-base-300 h-px flex-1 bg-gradient-to-r to-transparent"></div>
+                <div class="glass-card h-7 rounded-full px-3 py-1 text-[11px] tracking-wide uppercase">
+                  {dateEntries.length} entries
+                </div>
+                <div class="from-primary/30 h-px flex-1 bg-gradient-to-r to-transparent"></div>
               </div>
 
               {/* Entries for this date */}

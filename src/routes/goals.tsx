@@ -97,7 +97,7 @@ export default function Goals() {
       after={
         <Show when={showModal()}>
           <div class="modal modal-open backdrop-blur-sm">
-            <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-5xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
+            <div class="modal-box glass-card-raised h-full w-full max-w-5xl rounded-none p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
               <Show when={action() === 'create'}>
                 <GoalFormV2
                   groups={groups()}

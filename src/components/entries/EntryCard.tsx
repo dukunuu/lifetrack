@@ -147,7 +147,7 @@ export default function EntryCard(props: EntryCardProps) {
 
   return (
     <div
-      class="accent-card card bg-base-200/70 border-base-300/70 group border shadow-md transition-all duration-300 hover:shadow-lg"
+      class="accent-card glass-card hover-lift card group transition-all duration-300"
       style={cardStyle()}
     >
       <div class="card-body p-4">
@@ -201,10 +201,7 @@ export default function EntryCard(props: EntryCardProps) {
                   }
                 : undefined;
               return (
-                <div
-                  class="border-base-300/50 bg-base-200/40 space-y-2 rounded-2xl border p-3"
-                  style={blockStyle}
-                >
+                <div class="glass-card space-y-2 rounded-2xl p-3" style={blockStyle}>
                   <div class="flex items-center gap-3">
                     <div
                       class="bg-base-100 text-base-content/70 grid h-10 w-10 place-items-center rounded-xl"
@@ -227,7 +224,7 @@ export default function EntryCard(props: EntryCardProps) {
                   <div class="flex flex-wrap items-center gap-2">
                     <For each={textEntries}>
                       {([fieldName, value]) => (
-                        <div class="badge badge-ghost gap-1">
+                        <div class="badge glass-card gap-1">
                           <span class="text-base-content/50">{fieldName}:</span>
                           <span class="font-semibold">
                             {formatFieldValue(value, data.trackerId, fieldName)}
@@ -257,7 +254,7 @@ export default function EntryCard(props: EntryCardProps) {
                           const alt = `${tracker?.label || data.trackerTag} ${fieldName}`;
                           if (typeof value === 'string') {
                             return (
-                              <div class="border-base-300/60 overflow-hidden rounded-lg border">
+                              <div class="glass-card overflow-hidden rounded-lg">
                                 <ImagePreview
                                   src={value}
                                   alt={alt}
@@ -269,7 +266,7 @@ export default function EntryCard(props: EntryCardProps) {
                           }
                           if (!isPhotoValue(value)) return null;
                           return (
-                            <div class="border-base-300/60 overflow-hidden rounded-lg border">
+                            <div class="glass-card overflow-hidden rounded-lg">
                               <AttachmentPreview value={value} alt={alt} />
                             </div>
                           );
@@ -294,7 +291,7 @@ export default function EntryCard(props: EntryCardProps) {
 
         {/* Raw Input (for debugging/reference) */}
         <Show when={props.entry.raw}>
-          <details class="collapse-arrow bg-base-200 rounded-box collapse mt-2">
+          <details class="collapse-arrow glass-card rounded-box collapse mt-2">
             <summary class="collapse-title text-base-content/40 min-h-0 cursor-pointer py-2 text-xs">
               Show raw input
             </summary>

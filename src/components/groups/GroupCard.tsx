@@ -1,6 +1,6 @@
+import { Archive, ChevronDown, ChevronRight, Edit, Folder, FolderOpen, Trash2 } from 'lucide-solid';
 import { Show } from 'solid-js';
 import type { Group } from '../../lib/db/types';
-import { FolderOpen, Edit, Trash2, Archive, ChevronRight, ChevronDown, Folder } from 'lucide-solid';
 
 interface GroupCardProps {
   group: Group;
@@ -22,8 +22,8 @@ export default function GroupCard(props: GroupCardProps) {
   const showIcon = () => !!props.group.icon;
   const animationDelay = () => `${(props.index ?? 0) * 50}ms`;
   const cardClass = isTree()
-    ? 'accent-card card bg-base-300/80 border-base-content/10 animate-fade-in-up border shadow-md transition-all duration-300 hover:shadow-xl'
-    : 'card bg-base-300/80 border-base-content/10 hover:border-primary/30 animate-fade-in-up mb-2 border shadow-md transition-all duration-300 hover:shadow-xl';
+    ? 'accent-card glass-card hover-lift card animate-fade-in-up transition-all duration-300'
+    : 'glass-card hover-lift card animate-fade-in-up mb-2 transition-all duration-300';
 
   const renderIcon = () => {
     if (showIcon()) {

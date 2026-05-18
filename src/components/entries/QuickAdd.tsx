@@ -1,13 +1,13 @@
-import { Show, For, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
-import { Zap, Hash, Pin, Clock, Command, Paperclip, X } from 'lucide-solid';
-import { Tokenizer } from '../../lib/services/parser/tokenizer';
+import { Clock, Command, Hash, Paperclip, Pin, X, Zap } from 'lucide-solid';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import { useGroups } from '../../lib/hooks/useGroups';
-import { useTrackers } from '../../lib/hooks/useTrackers';
 import { useQuickAdd } from '../../lib/hooks/useQuickAdd';
 import { useSession } from '../../lib/hooks/useSession';
 import { useSettings } from '../../lib/hooks/useSettings';
-import ImagePreview from '../common/ImagePreview';
+import { useTrackers } from '../../lib/hooks/useTrackers';
+import { Tokenizer } from '../../lib/services/parser/tokenizer';
 import GlobalInput from '../common/GlobalInput';
+import ImagePreview from '../common/ImagePreview';
 
 const tokenizer = new Tokenizer();
 
@@ -261,10 +261,7 @@ export default function QuickAdd(props: QuickAddProps) {
   });
 
   return (
-    <div
-      class="bg-base-200 border-primary/10 shadow-2x relative rounded-2xl border"
-      classList={{ 'mb-8': !props.fixed }}
-    >
+    <div class="glass-card-raised glass-topline relative rounded-2xl">
       <div class="relative p-3 sm:p-6">
         <div class="mb-4 flex items-center gap-2">
           <Zap class="text-primary size-5" />
@@ -292,7 +289,7 @@ export default function QuickAdd(props: QuickAddProps) {
                   return (
                     <button
                       type="button"
-                      class="badge badge-lg bg-base-100/70 border-base-300/70 hover:border-primary/40 max-w-full items-center gap-2 border transition-colors"
+                      class="badge badge-lg glass-card hover-lift hover:border-primary/40 max-w-full items-center gap-2 transition-colors"
                       style={{
                         'border-color': accent ?? undefined,
                         color: accent ?? undefined,
@@ -328,7 +325,7 @@ export default function QuickAdd(props: QuickAddProps) {
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 placeholder="Type a command..."
-                class="bg-base-100/50 border-base-300/50 focus:border-primary/50 w-full pr-8 transition-colors"
+                class="glass-input w-full pr-8"
                 disabled={loading()}
               />
               <label class="btn btn-ghost btn-sm btn-square absolute top-1 right-1">
@@ -354,7 +351,7 @@ export default function QuickAdd(props: QuickAddProps) {
                   }
                 >
                   <div
-                    class="bg-base-200/40 text-base-content/70 rounded-2xl border p-3 text-xs"
+                    class="glass-card text-base-content/70 rounded-2xl p-3 text-xs"
                     classList={{ 'mt-3': !props.openUp }}
                     style={{
                       'border-color': activeAccentColor() ?? undefined,
@@ -410,7 +407,7 @@ export default function QuickAdd(props: QuickAddProps) {
                 <Show when={showSuggestions() && suggestions().length > 0}>
                   <ul
                     ref={dropdownRef}
-                    class="quickadd-menu bg-base-200 rounded-box border-base-300 max-h-96 overflow-x-hidden overflow-y-auto border p-2 shadow-2xl"
+                    class="quickadd-menu rounded-box max-h-96 overflow-x-hidden overflow-y-auto p-2 shadow-2xl"
                     classList={{ 'mt-2': !props.openUp }}
                   >
                     <For each={suggestions()}>
@@ -446,7 +443,7 @@ export default function QuickAdd(props: QuickAddProps) {
                               <div class="flex-shrink-0">
                                 <div class="avatar placeholder">
                                   <div
-                                    class="bg-base-100 flex w-10 items-center justify-center rounded-lg text-2xl"
+                                    class="glass-card flex w-10 items-center justify-center rounded-lg text-2xl"
                                     style={{
                                       color: accentColor ?? undefined,
                                       'border-color': accentColor ?? undefined,
@@ -476,7 +473,7 @@ export default function QuickAdd(props: QuickAddProps) {
                                       >
                                         #{tracker!.tag}
                                       </span>
-                                      <div class="badge badge-ghost badge-sm gap-1">
+                                      <div class="badge glass-card badge-sm gap-1">
                                         {getSuggestionIcon(trackerSuggestion.reason)}
                                         {getReasonLabel(trackerSuggestion.reason)}
                                       </div>
@@ -498,7 +495,7 @@ export default function QuickAdd(props: QuickAddProps) {
                                           sessionDurationLabel()
                                         }
                                       >
-                                        <div class="badge badge-outline badge-sm gap-1">
+                                        <div class="badge glass-card badge-sm gap-1">
                                           <Clock class="size-3" />
                                           {sessionDurationLabel()}
                                         </div>
@@ -513,7 +510,7 @@ export default function QuickAdd(props: QuickAddProps) {
 
                               {/* Score indicator for fuzzy matches */}
                               <Show when={trackerSuggestion?.reason === 'fuzzy'}>
-                                <div class="badge badge-sm badge-outline">
+                                <div class="badge glass-card badge-sm">
                                   {Math.round((1 - (trackerSuggestion?.score ?? 1)) * 100)}%
                                 </div>
                               </Show>
@@ -529,8 +526,8 @@ export default function QuickAdd(props: QuickAddProps) {
           </div>
 
           <Show when={attachmentPreview()}>
-            <div class="border-base-300/60 bg-base-200/60 mt-3 flex items-center gap-3 rounded-xl border px-3 py-2">
-              <div class="border-base-300/60 relative h-14 w-14 overflow-hidden rounded-lg border">
+            <div class="glass-card mt-3 flex items-center gap-3 rounded-xl px-3 py-2">
+              <div class="glass-card relative h-14 w-14 overflow-hidden rounded-lg">
                 <ImagePreview
                   src={attachmentPreview()!}
                   alt="Attachment"

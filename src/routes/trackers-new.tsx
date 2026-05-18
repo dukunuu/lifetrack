@@ -166,7 +166,7 @@ export default function TrackersAndGroups() {
       after={
         <Show when={showModal()}>
           <div class="modal modal-open backdrop-blur-sm">
-            <div class="modal-box bg-base-300 border-base-content/10 h-full w-full max-w-4xl rounded-none border p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
+            <div class="modal-box glass-card-raised h-full w-full max-w-4xl rounded-none p-0 shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
               <Show when={action() === 'create' && activeTab() === 'trackers'}>
                 <TrackerFormV2 onSubmit={handleCreateTracker} onCancel={closeModal} />
               </Show>
@@ -195,7 +195,7 @@ export default function TrackersAndGroups() {
     >
       {/* Tabs */}
       <div class="mb-6">
-        <div role="tablist" class="tabs tabs-boxed bg-base-200 w-full p-1 sm:w-auto">
+        <div role="tablist" class="tabs tabs-boxed glass-card w-full p-1 sm:w-auto">
           <button
             type="button"
             role="tab"
